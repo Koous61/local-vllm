@@ -193,6 +193,7 @@ One-shot example:
 ```
 
 The client supports both normal OpenAI-style `tool_calls` and the Qwen tool-call tags that `vLLM` may return in `tool_choice=auto` mode, so it works with the current default Qwen model without extra manual parsing.
+It also keeps a short in-memory summary of recent tool outputs, substitutes common result placeholders, and retries invalid `write_file` / `edit_file` steps when the model drops an exact value between tool calls.
 
 Interactive commands:
 

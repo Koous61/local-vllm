@@ -29,6 +29,15 @@ TOOL_BLOCK_PATTERNS = (
     re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL | re.IGNORECASE),
 )
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", re.DOTALL | re.IGNORECASE)
+PLACEHOLDER_PATTERN = re.compile(r"<(?:exact-)?result-of-([a-zA-Z0-9._-]+)>", re.IGNORECASE)
+LAST_RESULT_PATTERN = re.compile(
+    r"<result(?:_|-)of(?:_|-)(?:previous|last)(?:(?:_|-)(?:code|tool|step|call|result))?>",
+    re.IGNORECASE,
+)
+RESULT_SECTION_PATTERN = re.compile(r"### Result\s*(.*?)(?=\n### |\Z)", re.DOTALL)
+EMPTY_ASSIGNMENT_PATTERN = re.compile(r"(?m)^[A-Za-z0-9_. \\/()-]{2,}\s*(=|:)\s*$")
+ANGLE_INSTRUCTION_PATTERN = re.compile(r"<[^>\n]*\s+[^>\n]*>")
+MAX_TOOL_MEMORY_ITEMS = 5
 
 
 @dataclass
@@ -39,6 +48,26 @@ class RegisteredTool:
     description: str
     input_schema: dict[str, Any]
     session: ClientSession
+
+
+@dataclass
+class ToolMemory:
+    tool_name: str
+    call_id: str
+    text: str
+    exact_result: str | None
+
+
+@dataclass
+class ValidationIssue:
+    message: str
+
+
+@dataclass
+class ToolExecution:
+    call: dict[str, Any]
+    message_content: str
+    memory: ToolMemory
 
 
 def parse_args() -> argparse.Namespace:
@@ -151,6 +180,98 @@ def stringify_message_content(content: Any) -> str:
     return str(content)
 
 
+def truncate_text(value: str, limit: int = 240) -> str:
+    compact = " ".join(value.split())
+    if len(compact) <= limit:
+        return compact
+    return f"{compact[: limit - 3]}..."
+
+
+def stringify_scalar(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False)
+
+
+def extract_exact_result(text: str) -> str | None:
+    match = RESULT_SECTION_PATTERN.search(text)
+    if match:
+        candidate = match.group(1).strip()
+        if candidate:
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                return candidate
+
+            if isinstance(parsed, (str, int, float, bool)) or parsed is None:
+                return stringify_scalar(parsed)
+
+            return json.dumps(parsed, ensure_ascii=False)
+
+    stripped = text.strip()
+    if stripped and "### " not in stripped and "\n" not in stripped:
+        return stripped
+
+    return None
+
+
+def build_tool_message_content(tool_name: str, text: str, exact_result: str | None) -> str:
+    parts = [f"[tool={tool_name}]"]
+    if exact_result is not None:
+        parts.extend(
+            [
+                "[exact_result]",
+                exact_result,
+            ]
+        )
+    parts.extend(
+        [
+            "[full_result]",
+            text,
+        ]
+    )
+    return "\n".join(parts)
+
+
+def summarize_memories(memories: list[ToolMemory]) -> str | None:
+    if not memories:
+        return None
+
+    lines = [
+        "Tool result memory. Reuse the exact values below in future tool calls and final answers.",
+        "Do not write placeholders like <result-of-tool-name>.",
+    ]
+    for memory in memories[-MAX_TOOL_MEMORY_ITEMS:]:
+        if memory.exact_result is not None:
+            value = truncate_text(memory.exact_result)
+            lines.append(f"- {memory.tool_name}: exact_result={value}")
+        else:
+            lines.append(f"- {memory.tool_name}: summary={truncate_text(memory.text)}")
+    return "\n".join(lines)
+
+
+def inject_runtime_messages(
+    messages: list[dict[str, Any]],
+    memories: list[ToolMemory],
+    repair_note: str | None,
+) -> list[dict[str, Any]]:
+    runtime_messages = list(messages)
+    injected: list[dict[str, Any]] = []
+
+    if runtime_messages and runtime_messages[0].get("role") == "system":
+        injected.append(runtime_messages[0])
+        runtime_messages = runtime_messages[1:]
+
+    memory_note = summarize_memories(memories)
+    if memory_note:
+        injected.append({"role": "system", "content": memory_note})
+    if repair_note:
+        injected.append({"role": "system", "content": repair_note})
+
+    injected.extend(runtime_messages)
+    return injected
+
+
 def get_api_key(args: argparse.Namespace) -> str:
     if args.api_key:
         return args.api_key
@@ -253,6 +374,195 @@ def serialize_tool_result(result: Any) -> str:
     return json.dumps(dumped, ensure_ascii=False, indent=2)
 
 
+def get_memory_for_tool(memories: list[ToolMemory], tool_name: str) -> ToolMemory | None:
+    for memory in reversed(memories):
+        if memory.tool_name == tool_name:
+            return memory
+    return None
+
+
+def get_latest_exact_memory(memories: list[ToolMemory]) -> ToolMemory | None:
+    for memory in reversed(memories):
+        if memory.exact_result is not None:
+            return memory
+    return None
+
+
+def replace_placeholders_in_string(value: str, memories: list[ToolMemory]) -> tuple[str, list[str]]:
+    unresolved: list[str] = []
+    latest_memory = get_latest_exact_memory(memories)
+
+    def replace(match: re.Match[str]) -> str:
+        tool_name = match.group(1)
+        memory = get_memory_for_tool(memories, tool_name)
+        if not memory:
+            unresolved.append(tool_name)
+            return match.group(0)
+        return memory.exact_result or memory.text
+
+    updated = PLACEHOLDER_PATTERN.sub(replace, value)
+
+    def replace_last(match: re.Match[str]) -> str:
+        if latest_memory is None:
+            unresolved.append("latest-result")
+            return match.group(0)
+        return latest_memory.exact_result or latest_memory.text
+
+    updated = LAST_RESULT_PATTERN.sub(replace_last, updated)
+    return updated, unresolved
+
+
+def replace_placeholders(value: Any, memories: list[ToolMemory]) -> tuple[Any, list[str]]:
+    if isinstance(value, str):
+        return replace_placeholders_in_string(value, memories)
+
+    if isinstance(value, list):
+        updated_items: list[Any] = []
+        unresolved: list[str] = []
+        for item in value:
+            updated_item, item_unresolved = replace_placeholders(item, memories)
+            updated_items.append(updated_item)
+            unresolved.extend(item_unresolved)
+        return updated_items, unresolved
+
+    if isinstance(value, dict):
+        updated_map: dict[str, Any] = {}
+        unresolved: list[str] = []
+        for key, item in value.items():
+            updated_item, item_unresolved = replace_placeholders(item, memories)
+            updated_map[key] = updated_item
+            unresolved.extend(item_unresolved)
+        return updated_map, unresolved
+
+    return value, []
+
+
+def find_missing_exact_result_issue(
+    tool_name: str,
+    arguments: dict[str, Any],
+    memories: list[ToolMemory],
+) -> ValidationIssue | None:
+    if tool_name not in {"filesystem__write_file", "filesystem__edit_file"}:
+        return None
+
+    content = arguments.get("content")
+    if not isinstance(content, str) or not EMPTY_ASSIGNMENT_PATTERN.search(content):
+        return None
+
+    recent_exact = [
+        memory.exact_result
+        for memory in reversed(memories)
+        if memory.exact_result is not None
+    ][:3]
+    missing = [value for value in recent_exact if value and value not in content]
+    if not missing:
+        return None
+
+    preview = ", ".join(truncate_text(value, 80) for value in missing)
+    return ValidationIssue(
+        "The next file write appears to contain an empty field while recent tool results "
+        f"already produced exact values: {preview}. Re-issue the tool call with the exact values inserted."
+    )
+
+
+def find_instruction_placeholder_issue(
+    tool_name: str,
+    arguments: dict[str, Any],
+    memories: list[ToolMemory],
+) -> ValidationIssue | None:
+    if tool_name not in {"filesystem__write_file", "filesystem__edit_file"}:
+        return None
+
+    content = arguments.get("content")
+    if not isinstance(content, str) or not ANGLE_INSTRUCTION_PATTERN.search(content):
+        return None
+
+    recent_exact = [
+        memory.exact_result
+        for memory in reversed(memories)
+        if memory.exact_result is not None
+    ][:3]
+    if not recent_exact:
+        return None
+
+    if any(value and value in content for value in recent_exact):
+        return None
+
+    preview = ", ".join(truncate_text(value, 80) for value in recent_exact if value)
+    return ValidationIssue(
+        "The next file write still contains an instructional placeholder such as "
+        f"{truncate_text(content, 100)}. Replace that placeholder with the concrete exact value(s): {preview}."
+    )
+
+
+def prepare_tool_call(
+    tool_call: dict[str, Any],
+    memories: list[ToolMemory],
+) -> tuple[dict[str, Any] | None, ValidationIssue | None]:
+    function_data = tool_call["function"]
+    public_name = function_data["name"]
+
+    arguments_raw = function_data.get("arguments") or "{}"
+    try:
+        arguments = json.loads(arguments_raw)
+    except json.JSONDecodeError as exc:
+        return None, ValidationIssue(
+            f"Could not decode tool arguments for '{public_name}': {exc}"
+        )
+
+    if not isinstance(arguments, dict):
+        return None, ValidationIssue(
+            f"Tool arguments for '{public_name}' must decode to an object."
+        )
+
+    resolved_arguments, unresolved = replace_placeholders(arguments, memories)
+    if unresolved:
+        unique_names = ", ".join(sorted(set(unresolved)))
+        return None, ValidationIssue(
+            f"The previous tool call for '{public_name}' referenced unresolved placeholders: {unique_names}. "
+            "Use the exact remembered values instead of placeholders."
+        )
+
+    issue = find_missing_exact_result_issue(public_name, resolved_arguments, memories)
+    if issue:
+        return None, issue
+
+    issue = find_instruction_placeholder_issue(public_name, resolved_arguments, memories)
+    if issue:
+        return None, issue
+
+    prepared = {
+        "id": tool_call["id"],
+        "type": "function",
+        "function": {
+            "name": public_name,
+            "arguments": json.dumps(resolved_arguments, ensure_ascii=False),
+        },
+    }
+    return prepared, None
+
+
+def build_repair_note(issue: ValidationIssue, memories: list[ToolMemory]) -> str:
+    lines = [
+        issue.message,
+        "Retry the next step now.",
+    ]
+    recent_exact = [
+        memory
+        for memory in reversed(memories)
+        if memory.exact_result is not None
+    ][:3]
+    if recent_exact:
+        lines.append("Recent exact values:")
+        for memory in recent_exact:
+            lines.append(f"- {memory.tool_name}: {truncate_text(memory.exact_result or '', 120)}")
+    return "\n".join(lines)
+
+
+def contains_unresolved_placeholders(text: str) -> bool:
+    return bool(PLACEHOLDER_PATTERN.search(text))
+
+
 async def list_all_tools(session: ClientSession) -> list[Any]:
     cursor: str | None = None
     tools: list[Any] = []
@@ -343,22 +653,32 @@ def build_openai_tools(registry: dict[str, RegisteredTool]) -> list[dict[str, An
 
 async def call_registered_tool(
     tool_call: dict[str, Any], registry: dict[str, RegisteredTool]
-) -> str:
+) -> ToolExecution:
     function_data = tool_call["function"]
     public_name = function_data["name"]
     registered = registry.get(public_name)
     if not registered:
-        return json.dumps(
+        error_text = json.dumps(
             {"error": f"Unknown tool '{public_name}'."},
             ensure_ascii=False,
             indent=2,
+        )
+        return ToolExecution(
+            call=tool_call,
+            message_content=error_text,
+            memory=ToolMemory(
+                tool_name=public_name,
+                call_id=tool_call["id"],
+                text=error_text,
+                exact_result=None,
+            ),
         )
 
     arguments_raw = function_data.get("arguments") or "{}"
     try:
         arguments = json.loads(arguments_raw)
     except json.JSONDecodeError as exc:
-        return json.dumps(
+        error_text = json.dumps(
             {
                 "error": f"Could not decode tool arguments for '{public_name}'.",
                 "details": str(exc),
@@ -367,9 +687,19 @@ async def call_registered_tool(
             ensure_ascii=False,
             indent=2,
         )
+        return ToolExecution(
+            call=tool_call,
+            message_content=error_text,
+            memory=ToolMemory(
+                tool_name=public_name,
+                call_id=tool_call["id"],
+                text=error_text,
+                exact_result=None,
+            ),
+        )
 
     if not isinstance(arguments, dict):
-        return json.dumps(
+        error_text = json.dumps(
             {
                 "error": f"Tool arguments for '{public_name}' must decode to an object.",
                 "raw": arguments,
@@ -377,10 +707,31 @@ async def call_registered_tool(
             ensure_ascii=False,
             indent=2,
         )
+        return ToolExecution(
+            call=tool_call,
+            message_content=error_text,
+            memory=ToolMemory(
+                tool_name=public_name,
+                call_id=tool_call["id"],
+                text=error_text,
+                exact_result=None,
+            ),
+        )
 
     print(f"tool> {public_name} {json.dumps(arguments, ensure_ascii=False)}")
     result = await registered.session.call_tool(registered.original_name, arguments)
-    return serialize_tool_result(result)
+    text = serialize_tool_result(result)
+    exact_result = extract_exact_result(text)
+    return ToolExecution(
+        call=tool_call,
+        message_content=build_tool_message_content(public_name, text, exact_result),
+        memory=ToolMemory(
+            tool_name=public_name,
+            call_id=tool_call["id"],
+            text=text,
+            exact_result=exact_result,
+        ),
+    )
 
 
 async def resolve_model(client: AsyncOpenAI, model_name: str | None) -> str:
@@ -404,11 +755,15 @@ async def run_single_prompt(
     max_tool_rounds: int,
 ) -> str:
     messages.append({"role": "user", "content": prompt})
+    memories: list[ToolMemory] = []
+    repair_note: str | None = None
 
-    for _ in range(max_tool_rounds + 1):
+    for _ in range((max_tool_rounds * 2) + 4):
+        request_messages = inject_runtime_messages(messages, memories, repair_note)
+        repair_note = None
         request: dict[str, Any] = {
             "model": model,
-            "messages": messages,
+            "messages": request_messages,
             "temperature": 0.2,
         }
         if openai_tools:
@@ -420,30 +775,55 @@ async def run_single_prompt(
         tool_calls, fallback_from_content = normalize_tool_calls(message)
 
         if tool_calls:
-            assistant_message: dict[str, Any] = {
-                "role": "assistant",
-                "content": "" if fallback_from_content else stringify_message_content(message.content),
-                "tool_calls": tool_calls,
-            }
-            messages.append(assistant_message)
-
+            prepared_tool_calls: list[dict[str, Any]] = []
+            executions: list[ToolExecution] = []
+            working_memories = list(memories)
+            issue: ValidationIssue | None = None
             for tool_call in tool_calls:
-                tool_output = await call_registered_tool(tool_call, registry)
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call["id"],
-                        "content": tool_output,
-                    }
-                )
+                prepared_tool_call, issue = prepare_tool_call(tool_call, working_memories)
+                if issue:
+                    break
+                if prepared_tool_call is not None:
+                    prepared_tool_calls.append(prepared_tool_call)
+                    execution = await call_registered_tool(prepared_tool_call, registry)
+                    executions.append(execution)
+                    working_memories.append(execution.memory)
+
+            if prepared_tool_calls:
+                assistant_message: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": "" if fallback_from_content else stringify_message_content(message.content),
+                    "tool_calls": prepared_tool_calls,
+                }
+                messages.append(assistant_message)
+
+                for execution in executions:
+                    memories.append(execution.memory)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": execution.call["id"],
+                            "content": execution.message_content,
+                        }
+                    )
+
+            if issue:
+                repair_note = build_repair_note(issue, working_memories)
+                continue
             continue
 
         answer = stringify_message_content(message.content).strip()
+        if contains_unresolved_placeholders(answer):
+            repair_note = (
+                "Your last answer still contains unresolved placeholders. "
+                "Replace them with the exact remembered tool values and answer again."
+            )
+            continue
         messages.append({"role": "assistant", "content": answer})
         return answer
 
     raise RuntimeError(
-        f"The model exceeded the maximum number of tool rounds ({max_tool_rounds})."
+        "The model exceeded the maximum number of tool or repair rounds."
     )
 
 
