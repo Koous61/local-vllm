@@ -20,7 +20,7 @@ Use tools when they can provide a more reliable answer than guessing.
 Tool names are prefixed with the MCP server name, for example filesystem__read_file.
 When you decide to call a tool, do not describe the plan first. Emit only the tool call.
 When you use filesystem tools, prefer absolute Windows paths.
-If only one repository or workspace is configured for a tool family, use it without asking for clarification.
+If only one repository, workspace, or compose project is configured for a tool family, use it without asking for clarification.
 After tool results arrive, answer clearly and concisely."""
 
 TOOL_BLOCK_PATTERNS = (
@@ -599,45 +599,88 @@ def optimize_registry_for_prompt(
 ) -> dict[str, RegisteredTool]:
     lowered = prompt.lower()
     git_names = {name for name in registry if name.startswith("git__")}
-    if not git_names:
-        return dict(registry)
+    docker_names = {name for name in registry if name.startswith("docker__")}
 
-    explicit_git_mentions = {name for name in git_names if name.lower() in lowered}
-    if explicit_git_mentions:
-        return {
-            name: tool
-            for name, tool in registry.items()
-            if not name.startswith("git__") or name in explicit_git_mentions
-        }
+    optimized = dict(registry)
 
-    selected_git_names: set[str] | None = None
+    if git_names:
+        explicit_git_mentions = {name for name in git_names if name.lower() in lowered}
+        if explicit_git_mentions:
+            optimized = {
+                name: tool
+                for name, tool in optimized.items()
+                if not name.startswith("git__") or name in explicit_git_mentions
+            }
+        else:
+            selected_git_names: set[str] | None = None
+            status_keywords = ("working tree", "clean", "dirty", "current branch", "branch and", "branch ", "status summary")
+            diff_keywords = ("diff", "patch", "changed lines", "unstaged", "staged")
+            history_keywords = ("history", "log", "commit", "commits", "file history", "blame")
+            remote_keywords = ("remote", "origin", "upstream url", "fetch url", "push url")
+            branch_keywords = ("branches", "branch list")
 
-    status_keywords = ("working tree", "clean", "dirty", "current branch", "branch and", "branch ", "status summary")
-    diff_keywords = ("diff", "patch", "changed lines", "unstaged", "staged")
-    history_keywords = ("history", "log", "commit", "commits", "file history", "blame")
-    remote_keywords = ("remote", "origin", "upstream url", "fetch url", "push url")
-    branch_keywords = ("branches", "branch list")
+            if any(keyword in lowered for keyword in status_keywords):
+                selected_git_names = {"git__status_summary"}
+            elif any(keyword in lowered for keyword in diff_keywords):
+                selected_git_names = {"git__status_summary", "git__diff"}
+            elif any(keyword in lowered for keyword in history_keywords):
+                selected_git_names = {"git__log", "git__file_history", "git__show_commit"}
+            elif any(keyword in lowered for keyword in remote_keywords):
+                selected_git_names = {"git__remotes"}
+            elif any(keyword in lowered for keyword in branch_keywords):
+                selected_git_names = {"git__branches", "git__status_summary"}
 
-    if any(keyword in lowered for keyword in status_keywords):
-        selected_git_names = {"git__status_summary"}
-    elif any(keyword in lowered for keyword in diff_keywords):
-        selected_git_names = {"git__status_summary", "git__diff"}
-    elif any(keyword in lowered for keyword in history_keywords):
-        selected_git_names = {"git__log", "git__file_history", "git__show_commit"}
-    elif any(keyword in lowered for keyword in remote_keywords):
-        selected_git_names = {"git__remotes"}
-    elif any(keyword in lowered for keyword in branch_keywords):
-        selected_git_names = {"git__branches", "git__status_summary"}
+            if selected_git_names:
+                optimized = {
+                    name: tool
+                    for name, tool in optimized.items()
+                    if not name.startswith("git__") or name in selected_git_names
+                }
 
-    if not selected_git_names:
-        return dict(registry)
+    if docker_names:
+        explicit_docker_mentions = {name for name in docker_names if name.lower() in lowered}
+        if explicit_docker_mentions:
+            optimized = {
+                name: tool
+                for name, tool in optimized.items()
+                if not name.startswith("docker__") or name in explicit_docker_mentions
+            }
+        else:
+            selected_docker_names: set[str] | None = None
+            docker_status_keywords = (
+                "docker",
+                "compose",
+                "container status",
+                "service status",
+                "stack status",
+                "healthy",
+                "unhealthy",
+                "running services",
+            )
+            docker_logs_keywords = ("docker logs", "compose logs", "container logs", "service logs", "recent logs")
+            docker_inspect_keywords = ("inspect container", "container inspect", "container details")
+            docker_image_keywords = ("docker images", "list images", "images on this machine")
+            docker_container_keywords = ("containers", "list containers", "running containers", "all containers")
 
-    optimized: dict[str, RegisteredTool] = {}
-    for name, tool in registry.items():
-        if not name.startswith("git__") or name in selected_git_names:
-            optimized[name] = tool
+            if any(keyword in lowered for keyword in docker_logs_keywords):
+                selected_docker_names = {"docker__compose_logs", "docker__compose_status_summary"}
+            elif any(keyword in lowered for keyword in docker_inspect_keywords):
+                selected_docker_names = {"docker__container_inspect", "docker__list_containers", "docker__compose_ps"}
+            elif any(keyword in lowered for keyword in docker_image_keywords):
+                selected_docker_names = {"docker__list_images"}
+            elif any(keyword in lowered for keyword in docker_container_keywords):
+                selected_docker_names = {"docker__list_containers", "docker__compose_status_summary", "docker__compose_ps"}
+            elif any(keyword in lowered for keyword in docker_status_keywords):
+                selected_docker_names = {"docker__compose_status_summary", "docker__compose_ps"}
 
-    return optimized or dict(registry)
+            if selected_docker_names:
+                optimized = {
+                    name: tool
+                    for name, tool in optimized.items()
+                    if not name.startswith("docker__") or name in selected_docker_names
+                }
+
+    return optimized
 
 
 async def list_all_tools(session: ClientSession) -> list[Any]:

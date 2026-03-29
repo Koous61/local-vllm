@@ -82,6 +82,7 @@ More detail is in `docs/PROJECT-STRUCTURE.md`.
 .\logs.cmd
 .\test-chat.cmd
 .\agent.cmd --goal "Inspect this repo and tell me how to start the terminal agent."
+.\list-mcp.cmd
 .\stop.cmd
 .\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
 ```
@@ -211,13 +212,37 @@ Quick start:
 
 ```powershell
 .\setup-mcp.cmd
+.\list-mcp.cmd
 .\mcp-chat.cmd --server filesystem
 .\add-browser-mcp.cmd
+.\add-docker-mcp.cmd
 .\add-git-mcp.cmd
 .\add-uvcs-mcp.cmd -WorkspacePath D:\Work\MyUnrealProject
 ```
 
+Persistent MCP toggles:
+
+```powershell
+.\list-mcp.cmd
+.\disable-mcp.cmd playwright
+.\enable-mcp.cmd playwright
+```
+
 By default, `mcp-chat` loads the servers marked with `enabled: true` in `mcp-servers.json`. Passing `--server` explicitly overrides that default selection.
+
+## Docker MCP
+
+The stack can also expose a read-only Docker MCP profile for container and Compose inspection.
+
+Quick start:
+
+```powershell
+.\add-docker-mcp.cmd
+.\mcp-chat.cmd --server docker --once "Summarize the current Docker Compose services in this project."
+.\agent.cmd --profile ops --server docker --goal "Check whether the local stack containers are healthy."
+```
+
+The Docker profile is read-only in this project version and is meant for inspection, logs, and debugging rather than lifecycle changes.
 
 Detailed MCP setup, usage, reliability notes, and examples are documented in `docs/MCP.md`.
 

@@ -33,6 +33,16 @@
         "D:\\path\\to\\git-repo"
       ]
     },
+    "docker": {
+      "enabled": false,
+      "transport": "stdio",
+      "command": "D:\\path\\to\\repo\\.venv\\Scripts\\python.exe",
+      "args": [
+        "D:\\path\\to\\repo\\scripts\\mcp\\docker-mcp.py",
+        "--project-root",
+        "D:\\path\\to\\docker-project"
+      ]
+    },
     "uvcs": {
       "enabled": false,
       "transport": "stdio",

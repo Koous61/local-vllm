@@ -15,6 +15,12 @@ That command:
 - creates or updates `./mcp-servers.json`
 - registers a local `filesystem` MCP server through `npx`
 
+Inspect the configured MCP profiles any time with:
+
+```powershell
+.\list-mcp.cmd
+```
+
 ## Terminal usage
 
 Interactive mode:
@@ -107,6 +113,46 @@ Optional flags:
 .\add-browser-mcp.cmd -Headless
 .\add-browser-mcp.cmd -Isolated
 ```
+
+## Docker MCP
+
+The bundled Docker profile is a local read-only MCP server for Docker Desktop and Docker Compose inspection. It uses the installed `docker` CLI and is tuned for stack summaries, compose service status, logs, and container inspection.
+
+Register it with:
+
+```powershell
+.\add-docker-mcp.cmd
+.\add-docker-mcp.cmd -ProjectPath D:\Deals\local-vllm
+```
+
+If you omit `-ProjectPath`, the helper tries to detect a compose project from the repository root.
+
+Current tools:
+
+- `docker__list_projects`
+- `docker__compose_status_summary`
+- `docker__compose_ps`
+- `docker__compose_logs`
+- `docker__list_containers`
+- `docker__container_inspect`
+- `docker__list_images`
+
+Examples:
+
+```powershell
+.\mcp-chat.cmd --server docker
+.\mcp-chat.cmd --server docker --once "Use docker__compose_status_summary and summarize the current compose services."
+.\mcp-chat.cmd --server docker --once "Use docker__compose_logs and show recent logs for the vllm service."
+.\agent.cmd --profile ops --server docker --goal "Check whether the local Docker stack is healthy."
+```
+
+Notes:
+
+- the server is intentionally read-only in this project version
+- `docker__compose_status_summary` is the best first tool for service states and health
+- `docker__compose_ps` returns the fuller per-service payload when you need more detail
+- `docker__compose_logs` returns non-following logs with tail and truncation controls
+- `docker__list_containers` and `docker__list_images` provide machine-wide Docker views beyond one compose project
 
 ## Git MCP
 
@@ -242,3 +288,12 @@ Behavior:
 
 - if you do not pass `--server`, the terminal host loads only servers with `enabled: true`
 - if you pass `--server` explicitly, that selection overrides the default enabled set
+
+Persistent enable or disable commands:
+
+```powershell
+.\list-mcp.cmd
+.\disable-mcp.cmd playwright
+.\enable-mcp.cmd playwright
+.\disable-mcp.cmd filesystem uvcs
+```

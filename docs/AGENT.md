@@ -23,6 +23,7 @@ By default, the `coder` profile is used. It currently prefers a minimal default 
 
 - `coder`: local codebase and file inspection
 - `repo`: Git-oriented repository analysis, with a compact Git status summary as the preferred first step
+- `ops`: Docker and local stack inspection for compose services, containers, and logs
 - `unreal`: Unreal Engine and UVCS workspace analysis
 - `research`: browser-driven exploration with Playwright
 
@@ -30,6 +31,7 @@ Example:
 
 ```powershell
 .\agent.cmd --profile unreal --server uvcs --goal "Summarize Unreal gameplay-code changes in the current workspace."
+.\agent.cmd --profile ops --server docker --goal "Check whether the local Docker stack is healthy."
 ```
 
 ## Server selection

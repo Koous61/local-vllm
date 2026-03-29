@@ -78,6 +78,16 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
             "For most repository questions, start with git__status_summary instead of the heavier raw repository status payload.",
         ),
     ),
+    "ops": AgentProfile(
+        name="ops",
+        description="Docker and local stack inspection agent for containers, compose services, and logs.",
+        preferred_servers=("docker", "git", "filesystem"),
+        extra_rules=(
+            "For stack status questions, start with docker__compose_status_summary.",
+            "For service issues, fetch a compact status view before reading logs.",
+            "Prefer compose-scoped tools over global Docker tools unless the user asks for a machine-wide view.",
+        ),
+    ),
     "unreal": AgentProfile(
         name="unreal",
         description="Unreal Engine workspace agent for UVCS and source tree inspection.",
@@ -326,6 +336,10 @@ def build_goal_hints(goal: str) -> list[str]:
         "status" in lowered and "git" in lowered
     ):
         hints.append("For current branch and cleanliness questions, start with git__status_summary.")
+    if any(keyword in lowered for keyword in ("docker", "compose", "container", "service status", "stack status", "healthy", "unhealthy")):
+        hints.append("For Docker or compose service state questions, start with docker__compose_status_summary.")
+    if any(keyword in lowered for keyword in ("docker logs", "compose logs", "container logs", "service logs", "logs for")):
+        hints.append("For Docker log questions, use docker__compose_logs for compose services or docker__container_inspect after identifying the container.")
     if any(keyword in lowered for keyword in ("unreal", "plugin", "uasset", "umap", "build.cs", "target.cs", "config")):
         hints.append("Prefer Unreal-specific UVCS tools when they match the request.")
     if any(keyword in lowered for keyword in ("browser", "page", "website", "url", "open ")) or "http" in lowered:
@@ -584,6 +598,7 @@ async def collect_runtime_notes(registry: dict[str, RegisteredTool]) -> list[str
     probes: tuple[tuple[str, dict[str, Any], str], ...] = (
         ("filesystem__list_allowed_directories", {}, "Filesystem allowed directories"),
         ("git__list_repositories", {}, "Git repositories"),
+        ("docker__list_projects", {}, "Docker compose projects"),
         ("uvcs__list_workspaces", {}, "UVCS workspaces"),
     )
     notes: list[str] = []
@@ -607,6 +622,17 @@ async def collect_runtime_notes(registry: dict[str, RegisteredTool]) -> list[str
                 repo = parsed["repositories"][0]
                 notes.append(
                     f"One Git repository is configured: {repo.get('name')} ({repo.get('root')}). Use it by default."
+                )
+                continue
+        if public_name == "docker__list_projects":
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("projects"), list) and len(parsed["projects"]) == 1:
+                project = parsed["projects"][0]
+                notes.append(
+                    f"One Docker Compose project is configured: {project.get('name')} ({project.get('root')}). Use it by default."
                 )
                 continue
         exact = extract_exact_result(text)
