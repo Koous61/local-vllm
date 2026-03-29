@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\add-browser-mcp.ps1" %*
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\mcp\add-browser-mcp.ps1" %*

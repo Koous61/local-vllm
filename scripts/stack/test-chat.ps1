@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-. (Join-Path $PSScriptRoot "common.ps1")
+. (Join-Path $PSScriptRoot "..\lib\common.ps1")
 
 $envValues = Read-DotEnv -Path (Ensure-EnvFile)
 $apiKey = if ($envValues.ContainsKey("API_KEY") -and $envValues["API_KEY"]) {

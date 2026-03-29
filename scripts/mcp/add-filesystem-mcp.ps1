@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-. (Join-Path $PSScriptRoot "mcp-config.ps1")
+. (Join-Path $PSScriptRoot "..\lib\mcp-config.ps1")
 
 $root = Get-ProjectRoot
 $ConfigPath = Get-McpConfigPath -ConfigPath $ConfigPath

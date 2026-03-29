@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\logs.ps1" %*
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\stack\logs.ps1" %*

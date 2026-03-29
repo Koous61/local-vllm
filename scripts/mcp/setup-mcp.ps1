@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-. (Join-Path $PSScriptRoot "common.ps1")
+. (Join-Path $PSScriptRoot "..\lib\common.ps1")
 
 $root = Get-ProjectRoot
 $venvDir = Join-Path $root ".venv"

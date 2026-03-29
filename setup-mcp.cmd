@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\setup-mcp.ps1" %*
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\mcp\setup-mcp.ps1" %*

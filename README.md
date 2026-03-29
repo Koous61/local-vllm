@@ -45,14 +45,32 @@ After startup:
 
 - `.env` controls model and runtime settings
 - `docker-compose.yml` runs both `vLLM` and `Open WebUI`
-- `scripts/start.ps1` starts the stack and waits for readiness
-- `scripts/logs.ps1` tails container logs
-- `scripts/test-chat.ps1` sends a real request to the local OpenAI-compatible API
-- `scripts/use-model.ps1` switches the active model and can apply it immediately
-- `scripts/mcp-chat.py` runs a terminal MCP host against the local OpenAI-compatible API
-- `scripts/setup-mcp.ps1` creates a local `.venv`, installs MCP dependencies, and bootstraps `filesystem` MCP
-- `scripts/add-browser-mcp.ps1` registers a Playwright MCP profile for browser automation
+- `scripts/stack/` contains the Docker and runtime management scripts
+- `scripts/mcp/` contains the terminal MCP host and MCP setup helpers
+- `scripts/lib/` contains shared PowerShell helpers used by the other script groups
+- `docs/PROJECT-STRUCTURE.md` describes the repository layout and intended ownership of each area
 - `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd`, and `use-model.cmd` avoid PowerShell execution-policy friction on Windows
+
+## Project layout
+
+The root keeps the commands you use every day, while the implementation is grouped by responsibility:
+
+```text
+.
+|-- docs/
+|-- scripts/
+|   |-- container/
+|   |-- lib/
+|   |-- mcp/
+|   `-- stack/
+|-- data/
+|-- models/
+|-- *.cmd
+|-- docker-compose.yml
+`-- README.md
+```
+
+More detail is in `docs/PROJECT-STRUCTURE.md`.
 
 ## Common commands
 

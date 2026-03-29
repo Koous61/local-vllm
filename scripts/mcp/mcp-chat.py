@@ -130,7 +130,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def get_project_root() -> Path:
-    return Path(__file__).resolve().parent.parent
+    return Path(__file__).resolve().parent.parent.parent
 
 
 def load_dotenv(path: Path) -> dict[str, str]:

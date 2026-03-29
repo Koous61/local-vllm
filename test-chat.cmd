@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\test-chat.ps1" %*
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\stack\test-chat.ps1" %*
