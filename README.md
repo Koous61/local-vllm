@@ -76,6 +76,7 @@ More detail is in `docs/PROJECT-STRUCTURE.md`.
 
 ```powershell
 .\start.cmd
+.\doctor.cmd
 .\logs.cmd
 .\test-chat.cmd
 .\stop.cmd
@@ -181,140 +182,36 @@ API key:
 local-vllm-key
 ```
 
-## Terminal MCP client
+## Diagnostics
 
-This repository also includes a small terminal MCP host that uses the same local `vLLM` endpoint. It connects to one or more MCP servers, exposes their tools to the current model, executes tool calls, and continues the conversation in the terminal.
+Quick environment and runtime check:
 
-First-time setup:
+```powershell
+.\doctor.cmd
+```
+
+That command verifies:
+
+- local commands such as `docker`, `python`, `node`, and `npx`
+- Docker engine reachability
+- compose service state
+- configured model and context length
+- local MCP virtualenv and `mcp-servers.json`
+- live HTTP checks for `vLLM` and `Open WebUI`
+
+## MCP
+
+The repository includes a terminal MCP host plus bundled `filesystem` and Playwright browser profiles.
+
+Quick start:
 
 ```powershell
 .\setup-mcp.cmd
-```
-
-That command:
-
-- creates `./.venv`
-- installs `mcp==1.26.0` and `openai==2.30.0`
-- creates or updates `./mcp-servers.json`
-- registers a local `filesystem` MCP server through `npx`
-
-Default terminal usage:
-
-```powershell
 .\mcp-chat.cmd --server filesystem
-```
-
-One-shot example:
-
-```powershell
-.\mcp-chat.cmd --server filesystem --once "List the files in D:\\Deals\\local-vllm and tell me where the main startup script lives."
-```
-
-The client supports both normal OpenAI-style `tool_calls` and the Qwen tool-call tags that `vLLM` may return in `tool_choice=auto` mode, so it works with the current default Qwen model without extra manual parsing.
-It also keeps a short in-memory summary of recent tool outputs, substitutes common result placeholders, and retries invalid `write_file` / `edit_file` steps when the model drops an exact value between tool calls.
-
-Interactive commands:
-
-- `/tools` shows the loaded MCP tools
-- `/clear` resets the current conversation
-- `/exit` closes the terminal chat
-
-The local config file `mcp-servers.json` is ignored by Git on purpose. The committed template lives in `mcp-servers.example.json`.
-If you want to see raw stderr from the MCP server process for debugging, add `--show-server-logs`.
-
-## Filesystem MCP
-
-The first bundled MCP profile is `filesystem`, backed by the official `@modelcontextprotocol/server-filesystem` package through `npx`.
-
-By default, `.\setup-mcp.cmd` grants it access to the current repository root. To update the allowed directories later:
-
-```powershell
-.\add-filesystem-mcp.cmd -AllowedPath D:\Deals\local-vllm
-.\add-filesystem-mcp.cmd -AllowedPath D:\Deals\local-vllm D:\Deals\another-project
-```
-
-The generated config looks like this:
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "transport": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "D:\\Deals\\local-vllm"
-      ]
-    }
-  }
-}
-```
-
-Notes:
-
-- `filesystem` only sees directories explicitly passed as allowed paths
-- `Node.js` is required because the server is started with `npx`
-- you can add more MCP servers to `mcp-servers.json` later and enable them with repeated `--server` flags
-
-## Browser MCP
-
-The second bundled profile is `playwright`, powered by the official Playwright MCP server.
-
-Register it with:
-
-```powershell
 .\add-browser-mcp.cmd
 ```
 
-By default this creates a headed Edge profile on Windows:
-
-- server name: `playwright`
-- package: `@playwright/mcp@latest`
-- browser: `msedge`
-- output directory: `./data/playwright-mcp`
-
-Example config entry:
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "transport": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@playwright/mcp@latest",
-        "--browser",
-        "msedge",
-        "--output-dir",
-        "D:\\Deals\\local-vllm\\data\\playwright-mcp"
-      ]
-    }
-  }
-}
-```
-
-Example usage:
-
-```powershell
-.\mcp-chat.cmd --server playwright
-.\mcp-chat.cmd --server filesystem --server playwright --once "Open https://example.com in the browser, read the page title, and save a note in this repo if needed."
-```
-
-Optional flags:
-
-```powershell
-.\add-browser-mcp.cmd -Browser chrome
-.\add-browser-mcp.cmd -Headless
-.\add-browser-mcp.cmd -Isolated
-```
-
-Notes:
-
-- headed mode is the default, so the browser window can open visibly
-- on this Windows setup, `msedge` is the safest default because Edge is already installed
-- the first `npx` run may take a little longer while the MCP package is fetched
+Detailed MCP setup, usage, reliability notes, and examples are documented in `docs/MCP.md`.
 
 ## Rider integration
 
@@ -404,6 +301,10 @@ On Windows + WSL2, some VRAM is usually occupied by the desktop. The default `GP
 - `vLLM` is best suited for open-weight models, not proprietary cloud-only models
 - Not every Hugging Face model is guaranteed, but `vLLM` can also run many models through the Transformers backend
 - If a larger model fails on memory, reduce `MAX_MODEL_LEN` or use a smaller or quantized checkpoint
+
+## Changelog
+
+Project history is tracked in `CHANGELOG.md`.
 
 ## License
 

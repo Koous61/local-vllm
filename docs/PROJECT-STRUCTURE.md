@@ -6,9 +6,16 @@ This repository keeps user-facing commands at the root and groups implementation
 
 - `.env` and `.env.example`: runtime configuration for the local stack
 - `docker-compose.yml`: defines the `vLLM` and `Open WebUI` services
-- `*.cmd`: stable Windows entry points for the main workflows
+- `*.cmd`: stable Windows entry points for the main workflows, including `doctor.cmd`
+- `CHANGELOG.md`: project history and release-level notes
 - `requirements-mcp.txt`: Python dependencies for the terminal MCP client
 - `mcp-servers.example.json`: example MCP configuration template
+
+## Documentation
+
+- `README.md`: high-level onboarding and day-to-day commands
+- `docs/MCP.md`: MCP setup, reliability behavior, and bundled profiles
+- `docs/PROJECT-STRUCTURE.md`: repository layout and ownership guidance
 
 ## Runtime data
 

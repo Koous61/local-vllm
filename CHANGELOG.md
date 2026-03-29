@@ -1,0 +1,36 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+## [Unreleased]
+
+### Added
+
+- terminal MCP host for the local `vLLM` endpoint
+- `filesystem` MCP profile
+- Playwright browser MCP profile
+- `doctor.cmd` / `scripts/stack/doctor.ps1` for environment and service diagnostics
+- `docs/MCP.md` and `docs/PROJECT-STRUCTURE.md`
+
+### Changed
+
+- improved MCP reliability with placeholder substitution, tool-result memory, and repair retries
+- reorganized scripts into `scripts/lib`, `scripts/stack`, and `scripts/mcp`
+- simplified `README.md` by linking deeper MCP details to dedicated docs
+
+## [1.0.0] - 2026-03-29
+
+### Added
+
+- local `vLLM` stack through Docker Desktop and WSL2
+- OpenAI-compatible API on `http://localhost:8000/v1`
+- `Open WebUI` on `http://localhost:3010`
+- `use-model.cmd` for one-command model switching
+- default coding model `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`
+- Rider integration notes
+- Apache-2.0 license
+
+### Changed
+
+- enabled Rider-compatible auto tool choice with the `hermes` parser
+- raised the default context window to `8192`
