@@ -51,6 +51,7 @@ After startup:
 - `scripts/use-model.ps1` switches the active model and can apply it immediately
 - `scripts/mcp-chat.py` runs a terminal MCP host against the local OpenAI-compatible API
 - `scripts/setup-mcp.ps1` creates a local `.venv`, installs MCP dependencies, and bootstraps `filesystem` MCP
+- `scripts/add-browser-mcp.ps1` registers a Playwright MCP profile for browser automation
 - `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd`, and `use-model.cmd` avoid PowerShell execution-policy friction on Windows
 
 ## Common commands
@@ -236,6 +237,65 @@ Notes:
 - `filesystem` only sees directories explicitly passed as allowed paths
 - `Node.js` is required because the server is started with `npx`
 - you can add more MCP servers to `mcp-servers.json` later and enable them with repeated `--server` flags
+
+## Browser MCP
+
+The second bundled profile is `playwright`, powered by the official Playwright MCP server.
+
+Register it with:
+
+```powershell
+.\add-browser-mcp.cmd
+```
+
+By default this creates a headed Edge profile on Windows:
+
+- server name: `playwright`
+- package: `@playwright/mcp@latest`
+- browser: `msedge`
+- output directory: `./data/playwright-mcp`
+
+Example config entry:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "msedge",
+        "--output-dir",
+        "D:\\Deals\\local-vllm\\data\\playwright-mcp"
+      ]
+    }
+  }
+}
+```
+
+Example usage:
+
+```powershell
+.\mcp-chat.cmd --server playwright
+.\mcp-chat.cmd --server filesystem --server playwright --once "Open https://example.com in the browser, read the page title, and save a note in this repo if needed."
+```
+
+Optional flags:
+
+```powershell
+.\add-browser-mcp.cmd -Browser chrome
+.\add-browser-mcp.cmd -Headless
+.\add-browser-mcp.cmd -Isolated
+```
+
+Notes:
+
+- headed mode is the default, so the browser window can open visibly
+- on this Windows setup, `msedge` is the safest default because Edge is already installed
+- the first `npx` run may take a little longer while the MCP package is fetched
 
 ## Rider integration
 

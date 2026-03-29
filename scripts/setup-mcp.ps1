@@ -27,3 +27,4 @@ if (-not $AllowedPath -or $AllowedPath.Count -eq 0) {
 Write-Host ""
 Write-Host "MCP terminal client is ready."
 Write-Host "Run .\mcp-chat.cmd --server filesystem"
+Write-Host "Optional browser profile: .\add-browser-mcp.cmd"

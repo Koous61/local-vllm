@@ -8,6 +8,18 @@
         "@modelcontextprotocol/server-filesystem",
         "D:\\path\\to\\allowed\\files"
       ]
+    },
+    "playwright": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "msedge",
+        "--output-dir",
+        "D:\\path\\to\\playwright-output"
+      ]
     }
   }
 }
