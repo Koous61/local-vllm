@@ -48,7 +48,8 @@ After startup:
 - `scripts/start.ps1` starts the service and waits for readiness
 - `scripts/logs.ps1` tails container logs
 - `scripts/test-chat.ps1` sends a real chat request to the local API
-- `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd` avoid PowerShell execution-policy friction on Windows
+- `scripts/use-model.ps1` switches the served model and can apply it immediately
+- `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd`, `use-model.cmd` avoid PowerShell execution-policy friction on Windows
 
 ## Useful commands
 
@@ -57,6 +58,7 @@ After startup:
 .\logs.cmd
 .\test-chat.cmd
 .\stop.cmd
+.\use-model.cmd Qwen/Qwen2.5-7B-Instruct
 ```
 
 To follow logs immediately during boot:
@@ -67,7 +69,15 @@ To follow logs immediately during boot:
 
 ## Change the model
 
-Edit `.env` and update:
+The easiest way is:
+
+```powershell
+.\use-model.cmd Qwen/Qwen2.5-7B-Instruct
+```
+
+That command updates `.env`, derives a `SERVED_MODEL_NAME`, and applies the change to the running stack.
+
+You can still edit `.env` manually if you want:
 
 ```dotenv
 MODEL_ID=Qwen/Qwen2.5-7B-Instruct
@@ -89,6 +99,17 @@ SERVED_MODEL_NAME=my-local-model
 ```
 
 Put that model into `./models/my-local-model`.
+
+Examples:
+
+```powershell
+.\use-model.cmd meta-llama/Llama-3.2-3B-Instruct
+.\use-model.cmd deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+.\use-model.cmd /models/my-local-model
+.\use-model.cmd Qwen/Qwen2.5-VL-7B-Instruct -TrustRemoteCode
+.\use-model.cmd meta-llama/Llama-3.2-3B-Instruct -HFToken hf_xxx
+.\use-model.cmd Qwen/Qwen2.5-7B-Instruct -NoRestart
+```
 
 ## Gated and custom models
 

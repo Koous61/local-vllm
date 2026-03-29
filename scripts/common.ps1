@@ -49,3 +49,59 @@ function Get-ComposeArgs {
   $envFile = Ensure-EnvFile
   return @("--project-directory", $root, "--env-file", $envFile)
 }
+
+function Set-DotEnvValue {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Key,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Value
+  )
+
+  $updated = $false
+  $lines = New-Object System.Collections.Generic.List[string]
+  $escapedKey = [regex]::Escape($Key)
+
+  foreach ($line in Get-Content -Path $Path) {
+    if ($line -match "^${escapedKey}=") {
+      $lines.Add("$Key=$Value")
+      $updated = $true
+    } else {
+      $lines.Add($line)
+    }
+  }
+
+  if (-not $updated) {
+    $lines.Add("$Key=$Value")
+  }
+
+  Set-Content -Path $Path -Value $lines -Encoding ascii
+}
+
+function Convert-ToServedModelName {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ModelId
+  )
+
+  $trimmed = $ModelId.Trim()
+  $leaf = Split-Path -Path ($trimmed -replace "\\", "/") -Leaf
+  if (-not $leaf) {
+    $leaf = $trimmed
+  }
+
+  $servedName = $leaf.ToLowerInvariant()
+  $servedName = $servedName -replace "[^a-z0-9._-]+", "-"
+  $servedName = $servedName -replace "-{2,}", "-"
+  $servedName = $servedName.Trim("-")
+
+  if (-not $servedName) {
+    throw "Could not derive a served model name from '$ModelId'."
+  }
+
+  return $servedName
+}
