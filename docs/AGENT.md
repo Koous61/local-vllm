@@ -24,6 +24,7 @@ By default, the `coder` profile is used. It currently prefers a minimal default 
 - `coder`: local codebase and file inspection
 - `repo`: Git-oriented repository analysis, with a compact Git status summary as the preferred first step
 - `ops`: Docker and local stack inspection for compose services, containers, and logs
+- `node`: Node.js project inspection and build workflows
 - `unreal`: Unreal Engine and UVCS workspace analysis
 - `research`: browser-driven exploration with Playwright
 
@@ -32,6 +33,8 @@ Example:
 ```powershell
 .\agent.cmd --profile unreal --server uvcs --goal "Summarize Unreal gameplay-code changes in the current workspace."
 .\agent.cmd --profile ops --server docker --goal "Check whether the local Docker stack is healthy."
+.\agent.cmd --profile node --server node --goal "Inspect the configured Node project and list the available scripts."
+.\agent.cmd --profile node --server node --allow-writes --goal "Build the configured Node project."
 ```
 
 ## Server selection
@@ -73,6 +76,8 @@ Default behavior:
 - session history is persisted after each completed step
 
 If you later add write-capable workflows, expose them behind an explicit `--allow-writes` run.
+
+The Node profile already follows that pattern: dependency install, script execution, and build tools stay blocked until `--allow-writes` is present.
 
 ## Notes
 

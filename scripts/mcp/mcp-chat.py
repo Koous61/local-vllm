@@ -14,6 +14,7 @@ from local_mcp_runtime import (
     RegisteredTool,
     build_openai_tools,
     connect_servers,
+    filter_registry_for_mode,
     optimize_registry_for_prompt,
     get_api_key,
     get_project_root,
@@ -75,6 +76,11 @@ def parse_args() -> argparse.Namespace:
         help="Show stderr output from stdio MCP servers.",
     )
     parser.add_argument(
+        "--allow-writes",
+        action="store_true",
+        help="Allow write-like MCP tools such as Node install or build commands.",
+    )
+    parser.add_argument(
         "prompt",
         nargs="*",
         help="Optional prompt text. If set, the client runs once and exits.",
@@ -99,12 +105,16 @@ async def interactive_chat(
     system_prompt: str,
     registry: dict[str, RegisteredTool],
     max_tool_rounds: int,
+    blocked_tools: list[str],
+    allow_writes: bool,
 ) -> None:
     base_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     messages = list(base_messages)
 
     print(f"Model: {model}")
     print_tools(registry)
+    if not allow_writes and blocked_tools:
+        print(f"Blocked write-like tools: {', '.join(sorted(blocked_tools))}")
     print("Commands: /tools, /clear, /exit")
 
     while True:
@@ -157,6 +167,10 @@ async def async_main() -> int:
             args.server,
             args.show_server_logs,
         )
+        filtered_registry, blocked_tools = filter_registry_for_mode(
+            registry,
+            allow_writes=args.allow_writes,
+        )
         model = await resolve_model(client, args.model)
 
         if args.once:
@@ -168,7 +182,7 @@ async def async_main() -> int:
 
         if prompt is not None:
             messages = [{"role": "system", "content": args.system_prompt}]
-            prompt_registry = optimize_registry_for_prompt(registry, prompt)
+            prompt_registry = optimize_registry_for_prompt(filtered_registry, prompt)
             openai_tools = build_openai_tools(prompt_registry)
             answer = await run_single_prompt(
                 client=client,
@@ -186,8 +200,10 @@ async def async_main() -> int:
             client=client,
             model=model,
             system_prompt=args.system_prompt,
-            registry=registry,
+            registry=filtered_registry,
             max_tool_rounds=args.max_tool_rounds,
+            blocked_tools=blocked_tools,
+            allow_writes=args.allow_writes,
         )
         return 0
 

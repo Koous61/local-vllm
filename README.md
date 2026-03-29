@@ -206,7 +206,7 @@ That command verifies:
 
 ## MCP
 
-The repository includes a terminal MCP host plus bundled `filesystem`, Playwright browser, Git, and UVCS profiles. The UVCS profile also includes Unreal-oriented tools for `Source`, `Config`, `Content`, plugins, `Build.cs` and `Target.cs`, asset files, gameplay-code filters, and developer-focused workspace overviews.
+The repository includes a terminal MCP host plus bundled `filesystem`, Playwright browser, Git, Docker, Node.js, and UVCS profiles. The UVCS profile also includes Unreal-oriented tools for `Source`, `Config`, `Content`, plugins, `Build.cs` and `Target.cs`, asset files, gameplay-code filters, and developer-focused workspace overviews.
 
 Quick start:
 
@@ -217,6 +217,7 @@ Quick start:
 .\add-browser-mcp.cmd
 .\add-docker-mcp.cmd
 .\add-git-mcp.cmd
+.\add-node-mcp.cmd -ProjectPath D:\path\to\node-project
 .\add-uvcs-mcp.cmd -WorkspacePath D:\Work\MyUnrealProject
 ```
 
@@ -229,6 +230,21 @@ Persistent MCP toggles:
 ```
 
 By default, `mcp-chat` loads the servers marked with `enabled: true` in `mcp-servers.json`. Passing `--server` explicitly overrides that default selection.
+
+## Node MCP
+
+The stack can also expose a Node.js MCP profile for local `package.json` inspection, script discovery, dependency install, and project builds.
+
+Quick start:
+
+```powershell
+.\add-node-mcp.cmd -ProjectPath D:\Deals\MyNodeApp
+.\mcp-chat.cmd --server node --once "Use node__project_summary and tell me which package manager this project uses."
+.\agent.cmd --profile node --server node --goal "Inspect the configured Node project and list the available scripts."
+.\agent.cmd --profile node --server node --allow-writes --goal "Build the configured Node project."
+```
+
+The Node profile keeps read-only inspection tools available by default. Install, build, and arbitrary script execution tools are intentionally blocked until you pass `--allow-writes`.
 
 ## Docker MCP
 

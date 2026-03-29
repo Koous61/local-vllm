@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file.
 - compact Git status summary tool for faster local-model repository inspection
 - `list-mcp.cmd`, `enable-mcp.cmd`, and `disable-mcp.cmd` for persistent MCP profile toggling
 - read-only Docker MCP profile for compose status, logs, container inspection, and images
+- Node.js MCP profile for package.json inspection, dependency install, script execution, and builds
 - Unreal-oriented UVCS tools for area summaries, asset-only views, and workspace overviews
 - additional Unreal UVCS tools for plugin changes, Build.cs or Target.cs files, config files, and gameplay-code-only views
 
@@ -27,11 +28,13 @@ All notable changes to this project are documented in this file.
 - extracted shared MCP Python runtime logic so `mcp-chat` and the terminal agent use the same transport and tool loop
 - tuned Git MCP and repo-agent guidance so simple branch and clean/dirty questions prefer a smaller summary tool over the heavier raw status payload
 - added Docker-aware agent/profile guidance and Docker tool narrowing for stack questions
+- added Node-aware MCP and agent guidance, plus explicit write-gating for local build and install workflows
 - reorganized scripts into `scripts/lib`, `scripts/stack`, and `scripts/mcp`
 - simplified `README.md` by linking deeper MCP details to dedicated docs
 - added an `enabled` flag for MCP server entries so the default loaded server set can be controlled from config
 - diagnostics now report the local `git` command used by the Git profile
 - diagnostics now report the optional local `cm` command used by the UVCS profile
+- diagnostics now report local `npm`, `pnpm`, and `yarn` commands used by the Node profile
 
 ## [1.0.0] - 2026-03-29
 

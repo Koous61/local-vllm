@@ -43,6 +43,16 @@
         "D:\\path\\to\\docker-project"
       ]
     },
+    "node": {
+      "enabled": false,
+      "transport": "stdio",
+      "command": "D:\\path\\to\\repo\\.venv\\Scripts\\python.exe",
+      "args": [
+        "D:\\path\\to\\repo\\scripts\\mcp\\node-mcp.py",
+        "--project-root",
+        "D:\\path\\to\\node-project"
+      ]
+    },
     "uvcs": {
       "enabled": false,
       "transport": "stdio",

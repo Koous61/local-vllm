@@ -88,6 +88,16 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
             "Prefer compose-scoped tools over global Docker tools unless the user asks for a machine-wide view.",
         ),
     ),
+    "node": AgentProfile(
+        name="node",
+        description="Node.js build agent for package.json inspection, scripts, installs, and project builds.",
+        preferred_servers=("node", "git", "filesystem", "docker"),
+        extra_rules=(
+            "Start with node__project_summary or node__list_scripts before running build-like tools.",
+            "Use node__build_project for build goals and node__run_script only when the task explicitly needs a different script.",
+            "If write-like tools are blocked, explain that the run needs --allow-writes.",
+        ),
+    ),
     "unreal": AgentProfile(
         name="unreal",
         description="Unreal Engine workspace agent for UVCS and source tree inspection.",
@@ -340,6 +350,24 @@ def build_goal_hints(goal: str) -> list[str]:
         hints.append("For Docker or compose service state questions, start with docker__compose_status_summary.")
     if any(keyword in lowered for keyword in ("docker logs", "compose logs", "container logs", "service logs", "logs for")):
         hints.append("For Docker log questions, use docker__compose_logs for compose services or docker__container_inspect after identifying the container.")
+    if any(
+        keyword in lowered
+        for keyword in (
+            "package.json",
+            "node",
+            "npm",
+            "pnpm",
+            "yarn",
+            "frontend",
+            "backend",
+            "react",
+        )
+    ):
+        hints.append("For Node.js questions, start with node__project_summary or node__list_scripts before broader filesystem browsing.")
+    if any(keyword in lowered for keyword in (" build", "build ", "compile", "bundle", "production build")):
+        hints.append("For Node.js build tasks, prefer node__build_project and use --allow-writes when build tools are blocked.")
+    if any(keyword in lowered for keyword in ("install dependencies", "npm install", "pnpm install", "yarn install", "node_modules")):
+        hints.append("For dependency setup, prefer node__install_dependencies and keep the target project explicit when multiple Node projects are configured.")
     if any(keyword in lowered for keyword in ("unreal", "plugin", "uasset", "umap", "build.cs", "target.cs", "config")):
         hints.append("Prefer Unreal-specific UVCS tools when they match the request.")
     if any(keyword in lowered for keyword in ("browser", "page", "website", "url", "open ")) or "http" in lowered:
@@ -599,6 +627,7 @@ async def collect_runtime_notes(registry: dict[str, RegisteredTool]) -> list[str
         ("filesystem__list_allowed_directories", {}, "Filesystem allowed directories"),
         ("git__list_repositories", {}, "Git repositories"),
         ("docker__list_projects", {}, "Docker compose projects"),
+        ("node__list_projects", {}, "Node projects"),
         ("uvcs__list_workspaces", {}, "UVCS workspaces"),
     )
     notes: list[str] = []
@@ -633,6 +662,17 @@ async def collect_runtime_notes(registry: dict[str, RegisteredTool]) -> list[str
                 project = parsed["projects"][0]
                 notes.append(
                     f"One Docker Compose project is configured: {project.get('name')} ({project.get('root')}). Use it by default."
+                )
+                continue
+        if public_name == "node__list_projects":
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("projects"), list) and len(parsed["projects"]) == 1:
+                project = parsed["projects"][0]
+                notes.append(
+                    f"One Node project is configured: {project.get('name')} ({project.get('root')}). Use it by default."
                 )
                 continue
         exact = extract_exact_result(text)

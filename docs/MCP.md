@@ -154,6 +154,48 @@ Notes:
 - `docker__compose_logs` returns non-following logs with tail and truncation controls
 - `docker__list_containers` and `docker__list_images` provide machine-wide Docker views beyond one compose project
 
+## Node MCP
+
+The bundled Node profile is a local MCP server for Node.js projects that contain `package.json`. It can inspect project metadata and scripts in read-only mode, and it can install dependencies or build projects when the host run explicitly enables writes.
+
+Register it with:
+
+```powershell
+.\add-node-mcp.cmd -ProjectPath D:\Deals\MyNodeApp
+.\add-node-mcp.cmd -Name node-front -ProjectPath D:\Deals\MyFrontend
+.\add-node-mcp.cmd -Name node-backend -ProjectPath D:\Deals\MyBackend
+```
+
+If you omit `-ProjectPath`, the helper only tries to detect a `package.json` from the current repository root.
+
+Current tools:
+
+- `node__list_projects`
+- `node__project_summary`
+- `node__list_scripts`
+- `node__install_dependencies`
+- `node__run_script`
+- `node__build_project`
+
+Examples:
+
+```powershell
+.\mcp-chat.cmd --server node --once "Use node__list_projects and list the configured Node projects."
+.\mcp-chat.cmd --server node --once "Use node__project_summary and tell me which package manager this project uses."
+.\mcp-chat.cmd --server node --once "Use node__list_scripts and list the available package.json scripts."
+.\mcp-chat.cmd --server node --allow-writes --once "Use node__build_project and build the front project."
+.\agent.cmd --profile node --server node --goal "Inspect the configured Node project and list the scripts we can run."
+.\agent.cmd --profile node --server node --allow-writes --goal "Build the front project and summarize the result."
+```
+
+Notes:
+
+- `node__project_summary` is the best first tool for package manager, engines, scripts, and build-output hints
+- `node__list_scripts` is the best next step before choosing a specific script
+- `node__install_dependencies`, `node__run_script`, and `node__build_project` are blocked unless the host run includes `--allow-writes`
+- `node__build_project` can optionally install dependencies first with `install_if_needed=true`
+- if you want several Node project profiles through the Windows `.cmd` helper, register them as separate MCP servers with different `-Name` values
+
 ## Git MCP
 
 The bundled Git profile is a local read-only MCP server for Git repositories. It uses the installed `git` CLI and exposes repository inspection tools such as status, branches, remotes, log, file history, commit details, and diff.
@@ -274,12 +316,15 @@ Each server entry can include an `enabled` flag:
     "playwright": {
       "enabled": false
     },
-    "git": {
-      "enabled": true
-    },
-    "uvcs": {
-      "enabled": true
-    }
+      "git": {
+        "enabled": true
+      },
+      "node": {
+        "enabled": true
+      },
+      "uvcs": {
+        "enabled": true
+      }
   }
 }
 ```

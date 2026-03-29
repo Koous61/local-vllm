@@ -77,6 +77,9 @@ $dockerOk = Test-CommandAvailable "docker"
 $gitOk = Test-CommandAvailable "git"
 $pythonOk = Test-CommandAvailable "python"
 $nodeOk = Test-CommandAvailable "node"
+$npmOk = Test-CommandAvailable "npm"
+$pnpmOk = Test-CommandAvailable "pnpm"
+$yarnOk = Test-CommandAvailable "yarn"
 $npxOk = Test-CommandAvailable "npx"
 $cmOk = Test-CommandAvailable "cm"
 
@@ -84,6 +87,9 @@ Write-Check -Name "docker command" -Ok $dockerOk -Details (Get-CommandVersion -C
 Write-Check -Name "git command" -Ok $gitOk -Details (Get-CommandVersion -Command "git")
 Write-Check -Name "python command" -Ok $pythonOk -Details (Get-CommandVersion -Command "python")
 Write-Check -Name "node command" -Ok $nodeOk -Details (Get-CommandVersion -Command "node")
+Write-Check -Name "npm command" -Ok $npmOk -Details (Get-CommandVersion -Command "npm")
+Write-Check -Name "pnpm command (optional for Node MCP)" -Ok $pnpmOk -Details (Get-CommandVersion -Command "pnpm")
+Write-Check -Name "yarn command (optional for Node MCP)" -Ok $yarnOk -Details (Get-CommandVersion -Command "yarn")
 Write-Check -Name "npx command" -Ok $npxOk -Details (Get-CommandVersion -Command "npx")
 $cmVersion = $null
 if ($cmOk) {

@@ -20,7 +20,7 @@ Use tools when they can provide a more reliable answer than guessing.
 Tool names are prefixed with the MCP server name, for example filesystem__read_file.
 When you decide to call a tool, do not describe the plan first. Emit only the tool call.
 When you use filesystem tools, prefer absolute Windows paths.
-If only one repository, workspace, or compose project is configured for a tool family, use it without asking for clarification.
+If only one repository, workspace, compose project, or Node project is configured for a tool family, use it without asking for clarification.
 After tool results arrive, answer clearly and concisely."""
 
 TOOL_BLOCK_PATTERNS = (
@@ -60,6 +60,12 @@ WRITE_TOOL_PATTERNS = (
 )
 SAFE_READ_ONLY_TOOL_NAMES = {
     "git__show_commit",
+    "uvcs__unreal_build_script_status",
+}
+FORCED_WRITE_TOOL_NAMES = {
+    "node__install_dependencies",
+    "node__run_script",
+    "node__build_project",
 }
 
 
@@ -303,6 +309,15 @@ def parse_tool_calls_from_content(content: str) -> list[dict[str, Any]]:
     stripped_content = content.strip()
     if stripped_content.startswith("{") or stripped_content.startswith("["):
         candidates.append(stripped_content)
+
+    stripped_without_tool_blocks = content
+    for pattern in TOOL_BLOCK_PATTERNS:
+        stripped_without_tool_blocks = pattern.sub("\n", stripped_without_tool_blocks)
+    stripped_without_tool_blocks = stripped_without_tool_blocks.strip()
+    if stripped_without_tool_blocks and (
+        stripped_without_tool_blocks.startswith("{") or stripped_without_tool_blocks.startswith("[")
+    ):
+        candidates.append(stripped_without_tool_blocks)
 
     for payload_raw in candidates:
         payload = cleanup_tool_json(payload_raw)
@@ -569,6 +584,8 @@ def is_probably_write_tool(tool_name: str) -> bool:
     normalized = tool_name.strip().lower()
     if normalized in SAFE_READ_ONLY_TOOL_NAMES:
         return False
+    if normalized in FORCED_WRITE_TOOL_NAMES:
+        return True
     for pattern in WRITE_TOOL_PATTERNS:
         if pattern in normalized:
             return True
@@ -600,6 +617,7 @@ def optimize_registry_for_prompt(
     lowered = prompt.lower()
     git_names = {name for name in registry if name.startswith("git__")}
     docker_names = {name for name in registry if name.startswith("docker__")}
+    node_names = {name for name in registry if name.startswith("node__")}
 
     optimized = dict(registry)
 
@@ -678,6 +696,69 @@ def optimize_registry_for_prompt(
                     name: tool
                     for name, tool in optimized.items()
                     if not name.startswith("docker__") or name in selected_docker_names
+                }
+
+    if node_names:
+        explicit_node_mentions = {name for name in node_names if name.lower() in lowered}
+        if explicit_node_mentions:
+            optimized = {
+                name: tool
+                for name, tool in optimized.items()
+                if not name.startswith("node__") or name in explicit_node_mentions
+            }
+        else:
+            selected_node_names: set[str] | None = None
+            node_summary_keywords = (
+                "package.json",
+                "node project",
+                "node app",
+                "nodejs",
+                "node.js",
+                "package manager",
+                "available scripts",
+                "scripts in",
+                "frontend",
+                "backend",
+                "react app",
+            )
+            node_build_keywords = (
+                " build",
+                "build ",
+                "compile",
+                "bundle",
+                "production build",
+            )
+            node_install_keywords = (
+                "install dependencies",
+                "npm install",
+                "npm ci",
+                "pnpm install",
+                "yarn install",
+                "node_modules",
+            )
+            node_run_keywords = (
+                "run script",
+                "npm run",
+                "pnpm run",
+                "yarn run",
+                "start dev server",
+                "run the build script",
+            )
+
+            if any(keyword in lowered for keyword in node_install_keywords):
+                selected_node_names = {"node__project_summary", "node__install_dependencies"}
+            elif any(keyword in lowered for keyword in node_run_keywords):
+                selected_node_names = {"node__project_summary", "node__list_scripts", "node__run_script"}
+            elif any(keyword in lowered for keyword in node_build_keywords):
+                selected_node_names = {"node__project_summary", "node__list_scripts", "node__build_project"}
+            elif any(keyword in lowered for keyword in node_summary_keywords):
+                selected_node_names = {"node__project_summary", "node__list_scripts"}
+
+            if selected_node_names:
+                optimized = {
+                    name: tool
+                    for name, tool in optimized.items()
+                    if not name.startswith("node__") or name in selected_node_names
                 }
 
     return optimized
