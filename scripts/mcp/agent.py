@@ -24,6 +24,7 @@ from local_mcp_runtime import (
     get_enabled_server_names,
     get_project_root,
     load_config,
+    optimize_registry_for_prompt,
     parse_json_values,
     resolve_model,
     run_single_prompt,
@@ -74,6 +75,7 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
         extra_rules=(
             "Favor focused git queries over broad repository scans.",
             "Summarize branch, status, history, and diff findings clearly.",
+            "For most repository questions, start with git__status_summary instead of the heavier raw repository status payload.",
         ),
     ),
     "unreal": AgentProfile(
@@ -257,6 +259,7 @@ def build_agent_system_prompt(
         "Use MCP tools whenever they reduce uncertainty.",
         "Prefer compact, focused tool calls over broad scans.",
         "Never invent repository state, file contents, or browser results.",
+        "If the configured tools clearly point to one repository or workspace, use it directly instead of asking the operator to choose.",
         "When the task asks for an exact path, file, command, or entrypoint, verify that exact artifact with a tool before finishing.",
         "After each step, return exactly one JSON object and nothing else.",
         'The JSON object must contain: {"status":"continue|finish","step_summary":"...","user_response":"...","next_focus":"..."}',
@@ -322,7 +325,7 @@ def build_goal_hints(goal: str) -> list[str]:
     if any(keyword in lowered for keyword in ("working tree", "clean", "current branch", "branch and", "branch ")) or (
         "status" in lowered and "git" in lowered
     ):
-        hints.append("For current branch and cleanliness questions, start with git__repository_status.")
+        hints.append("For current branch and cleanliness questions, start with git__status_summary.")
     if any(keyword in lowered for keyword in ("unreal", "plugin", "uasset", "umap", "build.cs", "target.cs", "config")):
         hints.append("Prefer Unreal-specific UVCS tools when they match the request.")
     if any(keyword in lowered for keyword in ("browser", "page", "website", "url", "open ")) or "http" in lowered:
@@ -595,6 +598,17 @@ async def collect_runtime_notes(registry: dict[str, RegisteredTool]) -> list[str
             continue
 
         text = serialize_tool_result(result).strip()
+        if public_name == "git__list_repositories":
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("repositories"), list) and len(parsed["repositories"]) == 1:
+                repo = parsed["repositories"][0]
+                notes.append(
+                    f"One Git repository is configured: {repo.get('name')} ({repo.get('root')}). Use it by default."
+                )
+                continue
         exact = extract_exact_result(text)
         payload = exact or text
         payload = truncate_text(payload.replace("\r", " ").replace("\n", " | "), 320)
@@ -619,7 +633,6 @@ async def run_agent(
     client: AsyncOpenAI,
     model: str,
     session: dict[str, Any],
-    openai_tools: list[dict[str, Any]],
     registry: dict[str, RegisteredTool],
     profile: AgentProfile,
 ) -> str:
@@ -644,13 +657,15 @@ async def run_agent(
         )
         print(f"[step {step_number}/{max_steps}] thinking...")
         message_count_before = len(messages)
+        step_registry = optimize_registry_for_prompt(registry, step_prompt)
+        step_openai_tools = build_openai_tools(step_registry)
         raw_response = await run_single_prompt(
             client=client,
             model=model,
             prompt=step_prompt,
             messages=messages,
-            openai_tools=openai_tools,
-            registry=registry,
+            openai_tools=step_openai_tools,
+            registry=step_registry,
             max_tool_rounds=max_tool_rounds,
             temperature=0.1,
         )
@@ -753,7 +768,6 @@ async def async_main() -> int:
             allow_writes=args.allow_writes if resumed_session is None else bool(resumed_session["allow_writes"]),
         )
         runtime_notes = await collect_runtime_notes(filtered_registry)
-        openai_tools = build_openai_tools(filtered_registry)
         model = await resolve_model(client, args.model if args.model else (resumed_session or {}).get("model"))
 
         if resumed_session is not None:
@@ -798,7 +812,6 @@ async def async_main() -> int:
             client=client,
             model=model,
             session=session,
-            openai_tools=openai_tools,
             registry=filtered_registry,
             profile=profile,
         )

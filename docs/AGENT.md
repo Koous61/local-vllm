@@ -22,7 +22,7 @@ By default, the `coder` profile is used. It currently prefers a minimal default 
 ## Profiles
 
 - `coder`: local codebase and file inspection
-- `repo`: Git-oriented repository analysis
+- `repo`: Git-oriented repository analysis, with a compact Git status summary as the preferred first step
 - `unreal`: Unreal Engine and UVCS workspace analysis
 - `research`: browser-driven exploration with Playwright
 

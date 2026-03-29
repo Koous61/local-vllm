@@ -245,6 +245,7 @@ Behavior:
 - defaults to read-only mode by filtering write-like tools
 - stores sessions under `./data/agent-sessions`
 - picks a minimal default server per profile unless you pass `--server`
+- for Git repo questions, the stack now prefers a compact git status summary before heavier raw status payloads
 
 Detailed agent usage is documented in `docs/AGENT.md`.
 

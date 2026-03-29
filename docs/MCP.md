@@ -124,6 +124,7 @@ If you omit `-RepoPath`, the helper tries to detect the current repository from 
 Current tools:
 
 - `git__list_repositories`
+- `git__status_summary`
 - `git__repository_status`
 - `git__branches`
 - `git__remotes`
@@ -136,7 +137,7 @@ Examples:
 
 ```powershell
 .\mcp-chat.cmd --server git
-.\mcp-chat.cmd --server git --once "Use git__repository_status and summarize the current branch and changed files."
+.\mcp-chat.cmd --server git --once "Use git__status_summary and summarize the current branch and changed files."
 .\mcp-chat.cmd --server git --once "Use git__log and show the last 3 commits."
 .\mcp-chat.cmd --server git --once "Use git__diff for README.md and summarize the current unstaged diff."
 ```
@@ -145,6 +146,8 @@ Notes:
 
 - the server is intentionally read-only in this project version
 - access is restricted to the configured repository roots
+- `git__status_summary` is the best first tool for branch, clean or dirty state, ahead or behind, and a short changed-file sample
+- `git__repository_status` is still available when you explicitly need the fuller structured file-entry payload
 - `git__diff` can inspect unstaged changes, staged changes, or diffs against a ref
 - `git__file_history` follows file renames through Git history
 

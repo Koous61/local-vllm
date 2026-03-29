@@ -14,6 +14,7 @@ from local_mcp_runtime import (
     RegisteredTool,
     build_openai_tools,
     connect_servers,
+    optimize_registry_for_prompt,
     get_api_key,
     get_project_root,
     load_config,
@@ -96,7 +97,6 @@ async def interactive_chat(
     client: AsyncOpenAI,
     model: str,
     system_prompt: str,
-    openai_tools: list[dict[str, Any]],
     registry: dict[str, RegisteredTool],
     max_tool_rounds: int,
 ) -> None:
@@ -126,13 +126,15 @@ async def interactive_chat(
             print_tools(registry)
             continue
 
+        prompt_registry = optimize_registry_for_prompt(registry, prompt)
+        openai_tools = build_openai_tools(prompt_registry)
         answer = await run_single_prompt(
             client=client,
             model=model,
             prompt=prompt,
             messages=messages,
             openai_tools=openai_tools,
-            registry=registry,
+            registry=prompt_registry,
             max_tool_rounds=max_tool_rounds,
         )
         print(f"\nassistant> {answer}")
@@ -155,7 +157,6 @@ async def async_main() -> int:
             args.server,
             args.show_server_logs,
         )
-        openai_tools = build_openai_tools(registry)
         model = await resolve_model(client, args.model)
 
         if args.once:
@@ -167,13 +168,15 @@ async def async_main() -> int:
 
         if prompt is not None:
             messages = [{"role": "system", "content": args.system_prompt}]
+            prompt_registry = optimize_registry_for_prompt(registry, prompt)
+            openai_tools = build_openai_tools(prompt_registry)
             answer = await run_single_prompt(
                 client=client,
                 model=model,
                 prompt=prompt,
                 messages=messages,
                 openai_tools=openai_tools,
-                registry=registry,
+                registry=prompt_registry,
                 max_tool_rounds=args.max_tool_rounds,
             )
             print(answer)
@@ -183,7 +186,6 @@ async def async_main() -> int:
             client=client,
             model=model,
             system_prompt=args.system_prompt,
-            openai_tools=openai_tools,
             registry=registry,
             max_tool_rounds=args.max_tool_rounds,
         )

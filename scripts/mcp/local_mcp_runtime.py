@@ -20,6 +20,7 @@ Use tools when they can provide a more reliable answer than guessing.
 Tool names are prefixed with the MCP server name, for example filesystem__read_file.
 When you decide to call a tool, do not describe the plan first. Emit only the tool call.
 When you use filesystem tools, prefer absolute Windows paths.
+If only one repository or workspace is configured for a tool family, use it without asking for clarification.
 After tool results arrive, answer clearly and concisely."""
 
 TOOL_BLOCK_PATTERNS = (
@@ -590,6 +591,53 @@ def filter_registry_for_mode(
             continue
         allowed[name] = tool
     return allowed, sorted(blocked)
+
+
+def optimize_registry_for_prompt(
+    registry: dict[str, RegisteredTool],
+    prompt: str,
+) -> dict[str, RegisteredTool]:
+    lowered = prompt.lower()
+    git_names = {name for name in registry if name.startswith("git__")}
+    if not git_names:
+        return dict(registry)
+
+    explicit_git_mentions = {name for name in git_names if name.lower() in lowered}
+    if explicit_git_mentions:
+        return {
+            name: tool
+            for name, tool in registry.items()
+            if not name.startswith("git__") or name in explicit_git_mentions
+        }
+
+    selected_git_names: set[str] | None = None
+
+    status_keywords = ("working tree", "clean", "dirty", "current branch", "branch and", "branch ", "status summary")
+    diff_keywords = ("diff", "patch", "changed lines", "unstaged", "staged")
+    history_keywords = ("history", "log", "commit", "commits", "file history", "blame")
+    remote_keywords = ("remote", "origin", "upstream url", "fetch url", "push url")
+    branch_keywords = ("branches", "branch list")
+
+    if any(keyword in lowered for keyword in status_keywords):
+        selected_git_names = {"git__status_summary"}
+    elif any(keyword in lowered for keyword in diff_keywords):
+        selected_git_names = {"git__status_summary", "git__diff"}
+    elif any(keyword in lowered for keyword in history_keywords):
+        selected_git_names = {"git__log", "git__file_history", "git__show_commit"}
+    elif any(keyword in lowered for keyword in remote_keywords):
+        selected_git_names = {"git__remotes"}
+    elif any(keyword in lowered for keyword in branch_keywords):
+        selected_git_names = {"git__branches", "git__status_summary"}
+
+    if not selected_git_names:
+        return dict(registry)
+
+    optimized: dict[str, RegisteredTool] = {}
+    for name, tool in registry.items():
+        if not name.startswith("git__") or name in selected_git_names:
+            optimized[name] = tool
+
+    return optimized or dict(registry)
 
 
 async def list_all_tools(session: ClientSession) -> list[Any]:

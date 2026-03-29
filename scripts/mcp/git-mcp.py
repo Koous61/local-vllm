@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import locale
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -79,12 +80,17 @@ class GitService:
         if repo is not None:
             command.extend(["-C", str(repo.root)])
         command.extend(args)
+        env = os.environ.copy()
+        env.setdefault("GIT_PAGER", "cat")
+        env.setdefault("GIT_TERMINAL_PROMPT", "0")
         result = subprocess.run(
             command,
             capture_output=True,
             text=True,
             encoding=encoding,
             errors="replace",
+            stdin=subprocess.DEVNULL,
+            env=env,
             check=False,
         )
         if result.returncode != 0:
@@ -366,6 +372,80 @@ class GitService:
             "entries": entries[:normalized_limit],
         }
 
+    def status_summary(
+        self,
+        repo_path: str | None = None,
+        include_untracked: bool = True,
+        include_ignored: bool = False,
+        sample_limit: int = 12,
+    ) -> dict[str, Any]:
+        repo = self.resolve_repo(repo_path)
+        args = ["status", "--porcelain=v2", "--branch"]
+        args.append("--untracked-files=all" if include_untracked else "--untracked-files=no")
+        if include_ignored:
+            args.append("--ignored=matching")
+
+        output = self._run_git(repo, args)
+        branch, entries = self._parse_status_entries(repo, output)
+        normalized_limit = max(1, min(sample_limit, 50))
+
+        visible_entries = [entry for entry in entries if entry["primary_status"] != "ignored"]
+        sample_entries = []
+        for entry in visible_entries[:normalized_limit]:
+            sample = {
+                "path": entry["relative_path"],
+                "status": entry["primary_status"],
+            }
+            if entry.get("entry_type") and entry["entry_type"] not in {"ordinary", "renamed"}:
+                sample["entry_type"] = entry["entry_type"]
+            if entry.get("staged_status"):
+                sample["staged_status"] = entry["staged_status"]
+            if entry.get("worktree_status"):
+                sample["worktree_status"] = entry["worktree_status"]
+            if entry.get("original_path"):
+                sample["original_path"] = entry["original_path"]
+            sample_entries.append(sample)
+
+        tracked_change_count = sum(
+            1 for entry in visible_entries if entry["primary_status"] not in {"untracked", "ignored"}
+        )
+        untracked_count = sum(1 for entry in visible_entries if entry["primary_status"] == "untracked")
+        unmerged_count = sum(1 for entry in visible_entries if entry["primary_status"] == "unmerged")
+        staged_change_count = sum(1 for entry in visible_entries if entry.get("staged_status"))
+        worktree_change_count = sum(1 for entry in visible_entries if entry.get("worktree_status"))
+        ignored_count = len(entries) - len(visible_entries)
+        is_clean = len(visible_entries) == 0
+
+        branch_name = branch["head"] or "(detached)"
+        upstream = branch.get("upstream")
+        relation_parts: list[str] = []
+        if upstream:
+            relation_parts.append(f"upstream {upstream}")
+        if branch.get("ahead"):
+            relation_parts.append(f"ahead {branch['ahead']}")
+        if branch.get("behind"):
+            relation_parts.append(f"behind {branch['behind']}")
+        relation_suffix = f" ({', '.join(relation_parts)})" if relation_parts else ""
+        cleanliness = "clean" if is_clean else f"dirty: {len(visible_entries)} item(s)"
+        headline = f"{branch_name}{relation_suffix}; {cleanliness}"
+
+        return {
+            "repo_root": str(repo.root),
+            "repo_name": repo.name,
+            "branch": branch,
+            "headline": headline,
+            "is_clean": is_clean,
+            "changed_count": len(visible_entries),
+            "tracked_change_count": tracked_change_count,
+            "untracked_count": untracked_count,
+            "unmerged_count": unmerged_count,
+            "ignored_count": ignored_count,
+            "staged_change_count": staged_change_count,
+            "worktree_change_count": worktree_change_count,
+            "truncated": len(visible_entries) > normalized_limit,
+            "sample_entries": sample_entries,
+        }
+
     def branches(self, repo_path: str | None = None, include_remote: bool = False) -> dict[str, Any]:
         repo = self.resolve_repo(repo_path)
         refs = ["refs/heads"]
@@ -603,7 +683,7 @@ def build_server(service: GitService) -> FastMCP:
 
     @server.tool(
         name="repository_status",
-        description="Inspect Git status for a local repository, including branch tracking and changed files.",
+        description="Detailed raw Git status for a local repository, including branch tracking and structured per-file entries. Use this when you explicitly need the full status payload. For current branch, cleanliness, or a compact first look, prefer status_summary.",
         annotations=READ_ONLY,
     )
     def repository_status(
@@ -617,6 +697,24 @@ def build_server(service: GitService) -> FastMCP:
             limit=limit,
             include_untracked=include_untracked,
             include_ignored=include_ignored,
+        )
+
+    @server.tool(
+        name="status_summary",
+        description="Fast compact Git working-tree summary. Best first tool for current branch, clean or dirty state, ahead or behind tracking, and a small sample of changed files.",
+        annotations=READ_ONLY,
+    )
+    def status_summary(
+        repo_path: str | None = None,
+        include_untracked: bool = True,
+        include_ignored: bool = False,
+        sample_limit: int = 12,
+    ) -> dict[str, Any]:
+        return service.status_summary(
+            repo_path=repo_path,
+            include_untracked=include_untracked,
+            include_ignored=include_ignored,
+            sample_limit=sample_limit,
         )
 
     @server.tool(
