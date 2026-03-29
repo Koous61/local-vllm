@@ -206,7 +206,7 @@ That command verifies:
 
 ## MCP
 
-The repository includes a terminal MCP host plus bundled `filesystem`, Playwright browser, Git, Docker, Node.js, and UVCS profiles. The UVCS profile also includes Unreal-oriented tools for `Source`, `Config`, `Content`, plugins, `Build.cs` and `Target.cs`, asset files, gameplay-code filters, and developer-focused workspace overviews.
+The repository includes a terminal MCP host plus bundled `filesystem`, Playwright browser, Git, Docker, Node.js, Python, and UVCS profiles. The UVCS profile also includes Unreal-oriented tools for `Source`, `Config`, `Content`, plugins, `Build.cs` and `Target.cs`, asset files, gameplay-code filters, and developer-focused workspace overviews.
 
 Quick start:
 
@@ -218,6 +218,7 @@ Quick start:
 .\add-docker-mcp.cmd
 .\add-git-mcp.cmd
 .\add-node-mcp.cmd -ProjectPath D:\path\to\node-project
+.\add-python-mcp.cmd -ProjectPath D:\path\to\python-project
 .\add-uvcs-mcp.cmd -WorkspacePath D:\Work\MyUnrealProject
 ```
 
@@ -245,6 +246,21 @@ Quick start:
 ```
 
 The Node profile keeps read-only inspection tools available by default. Install, build, and arbitrary script execution tools are intentionally blocked until you pass `--allow-writes`.
+
+## Python MCP
+
+The stack can also expose a Python MCP profile for local project inspection, syntax checks, script or module execution, and test runs.
+
+Quick start:
+
+```powershell
+.\add-python-mcp.cmd -ProjectPath D:\Deals\local-vllm
+.\mcp-chat.cmd --server python --once "Use python__project_summary and summarize the configured Python project."
+.\agent.cmd --profile python --server python --goal "Inspect the configured Python project and list the test targets."
+.\agent.cmd --profile python --server python --allow-writes --goal "Run the configured Python tests and summarize the result."
+```
+
+The Python profile keeps inspection and `python__syntax_check` available by default. Script, module, pytest, and unittest execution tools stay blocked until you pass `--allow-writes`.
 
 ## Docker MCP
 

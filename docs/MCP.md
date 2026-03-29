@@ -196,6 +196,50 @@ Notes:
 - `node__build_project` can optionally install dependencies first with `install_if_needed=true`
 - if you want several Node project profiles through the Windows `.cmd` helper, register them as separate MCP servers with different `-Name` values
 
+## Python MCP
+
+The bundled Python profile is a local MCP server for Python projects. It can inspect project metadata, discover test targets, and run a read-only syntax check by default. Script execution, module runs, and test runs are available when the host run explicitly enables writes.
+
+Register it with:
+
+```powershell
+.\add-python-mcp.cmd -ProjectPath D:\Deals\local-vllm
+.\add-python-mcp.cmd -Name python-api -ProjectPath D:\Deals\MyPythonApi
+```
+
+If you omit `-ProjectPath`, the helper only tries to detect a Python project from the current repository root.
+
+Current tools:
+
+- `python__list_projects`
+- `python__project_summary`
+- `python__list_test_targets`
+- `python__syntax_check`
+- `python__run_script`
+- `python__run_module`
+- `python__run_pytest`
+- `python__run_unittest`
+
+Examples:
+
+```powershell
+.\mcp-chat.cmd --server python --once "Use python__list_projects and list the configured Python projects."
+.\mcp-chat.cmd --server python --once "Use python__project_summary and summarize the configured Python project."
+.\mcp-chat.cmd --server python --once "Use python__syntax_check and check the scripts/mcp folder for syntax errors."
+.\mcp-chat.cmd --server python --allow-writes --once "Use python__run_script and run scripts\\mcp\\agent.py --help."
+.\mcp-chat.cmd --server python --allow-writes --once "Use python__run_pytest and run the configured Python tests."
+.\agent.cmd --profile python --server python --goal "Inspect the configured Python project and list the test targets."
+.\agent.cmd --profile python --server python --allow-writes --goal "Run the configured Python tests and summarize the result."
+```
+
+Notes:
+
+- `python__project_summary` is the best first tool for interpreter, config files, entrypoints, and test hints
+- `python__list_test_targets` is the best next step before running targeted tests
+- `python__syntax_check` compiles source in memory and does not write `.pyc` files
+- `python__run_script`, `python__run_module`, `python__run_pytest`, and `python__run_unittest` are blocked unless the host run includes `--allow-writes`
+- if you want several Python project profiles through the Windows `.cmd` helper, register them as separate MCP servers with different `-Name` values
+
 ## Git MCP
 
 The bundled Git profile is a local read-only MCP server for Git repositories. It uses the installed `git` CLI and exposes repository inspection tools such as status, branches, remotes, log, file history, commit details, and diff.
@@ -316,15 +360,18 @@ Each server entry can include an `enabled` flag:
     "playwright": {
       "enabled": false
     },
-      "git": {
-        "enabled": true
-      },
-      "node": {
-        "enabled": true
-      },
-      "uvcs": {
-        "enabled": true
-      }
+    "git": {
+      "enabled": true
+    },
+    "node": {
+      "enabled": true
+    },
+    "python": {
+      "enabled": true
+    },
+    "uvcs": {
+      "enabled": true
+    }
   }
 }
 ```

@@ -105,6 +105,16 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
             "If write-like tools are blocked, explain that the run needs --allow-writes.",
         ),
     ),
+    "python": AgentProfile(
+        name="python",
+        description="Python execution and test agent for project inspection, scripts, modules, syntax checks, and test runs.",
+        preferred_servers=("python", "git", "filesystem", "docker"),
+        extra_rules=(
+            "Start with python__project_summary or python__list_test_targets before running Python execution tools.",
+            "Prefer python__syntax_check for fast validation before full test runs when the goal is about errors or syntax.",
+            "If execution tools are blocked, explain that the run needs --allow-writes.",
+        ),
+    ),
     "unreal": AgentProfile(
         name="unreal",
         description="Unreal Engine workspace agent for UVCS and source tree inspection.",
@@ -131,6 +141,7 @@ SERVER_ROUTER_DESCRIPTIONS: dict[str, str] = {
     "git": "Local Git repository inspection. Best for branch, status, diff, log, remotes, and file history questions.",
     "docker": "Local Docker and compose inspection. Best for stack health, service states, container details, and logs.",
     "node": "Node.js project inspection and build workflows. Best for package.json, scripts, package manager, dependency install, and project builds.",
+    "python": "Python project inspection and execution workflows. Best for pyproject.toml or requirements, syntax checks, scripts, modules, pytest, and unittest runs.",
     "uvcs": "UVCS / Plastic SCM workspace inspection, including Unreal-specific summaries for project areas, assets, plugins, config, and gameplay code.",
 }
 
@@ -426,6 +437,19 @@ def heuristic_server_selection(
         add("docker")
     if any(keyword in lowered for keyword in ("package.json", "node", "npm", "pnpm", "yarn", "frontend", "backend", "react")):
         add("node")
+    if any(
+        keyword in lowered
+        for keyword in (
+            "python",
+            "pytest",
+            "unittest",
+            "requirements.txt",
+            "pyproject.toml",
+            "fastapi",
+            "uvicorn",
+        )
+    ):
+        add("python")
     if any(keyword in lowered for keyword in ("unreal", "uvcs", "plastic", "uasset", "umap", "build.cs", "target.cs", "plugin")):
         add("uvcs")
     if any(keyword in lowered for keyword in ("branch", "diff", "commit", "history", "git", "working tree", "repo")):
@@ -441,7 +465,7 @@ def heuristic_server_selection(
             if selected:
                 break
 
-    if len(selected) == 1 and selected[0] in {"git", "uvcs", "node"} and "filesystem" in enabled_set:
+    if len(selected) == 1 and selected[0] in {"git", "uvcs", "node", "python"} and "filesystem" in enabled_set:
         if any(keyword in lowered for keyword in ("entrypoint", "readme", "file", "path", "note", "save", "startup")):
             add("filesystem")
 
@@ -581,6 +605,23 @@ def build_goal_hints(goal: str) -> list[str]:
         hints.append("For Node.js build tasks, prefer node__build_project and use --allow-writes when build tools are blocked.")
     if any(keyword in lowered for keyword in ("install dependencies", "npm install", "pnpm install", "yarn install", "node_modules")):
         hints.append("For dependency setup, prefer node__install_dependencies and keep the target project explicit when multiple Node projects are configured.")
+    if any(
+        keyword in lowered
+        for keyword in (
+            "python",
+            "pytest",
+            "unittest",
+            "requirements.txt",
+            "pyproject.toml",
+            "fastapi",
+            "uvicorn",
+        )
+    ):
+        hints.append("For Python questions, start with python__project_summary or python__list_test_targets before broader filesystem browsing.")
+    if any(keyword in lowered for keyword in ("run python", "python -m", "run module", "python script", "run tests", "pytest", "unittest")):
+        hints.append("For Python execution or test tasks, prefer the dedicated python__run_* tools and use --allow-writes when they are blocked.")
+    if any(keyword in lowered for keyword in ("syntax check", "syntax error", "py_compile", "compile python")):
+        hints.append("For syntax-focused Python tasks, prefer python__syntax_check before heavier execution steps.")
     if any(keyword in lowered for keyword in ("unreal", "plugin", "uasset", "umap", "build.cs", "target.cs", "config")):
         hints.append("Prefer Unreal-specific UVCS tools when they match the request.")
     if any(keyword in lowered for keyword in ("browser", "page", "website", "url", "open ")) or "http" in lowered:
@@ -843,6 +884,7 @@ async def collect_runtime_notes(registry: dict[str, RegisteredTool]) -> list[str
         ("git__list_repositories", {}, "Git repositories"),
         ("docker__list_projects", {}, "Docker compose projects"),
         ("node__list_projects", {}, "Node projects"),
+        ("python__list_projects", {}, "Python projects"),
         ("uvcs__list_workspaces", {}, "UVCS workspaces"),
     )
     notes: list[str] = []
@@ -888,6 +930,17 @@ async def collect_runtime_notes(registry: dict[str, RegisteredTool]) -> list[str
                 project = parsed["projects"][0]
                 notes.append(
                     f"One Node project is configured: {project.get('name')} ({project.get('root')}). Use it by default."
+                )
+                continue
+        if public_name == "python__list_projects":
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("projects"), list) and len(parsed["projects"]) == 1:
+                project = parsed["projects"][0]
+                notes.append(
+                    f"One Python project is configured: {project.get('name')} ({project.get('root')}). Use it by default."
                 )
                 continue
         exact = extract_exact_result(text)

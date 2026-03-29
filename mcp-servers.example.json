@@ -53,6 +53,16 @@
         "D:\\path\\to\\node-project"
       ]
     },
+    "python": {
+      "enabled": false,
+      "transport": "stdio",
+      "command": "D:\\path\\to\\repo\\.venv\\Scripts\\python.exe",
+      "args": [
+        "D:\\path\\to\\repo\\scripts\\mcp\\python-mcp.py",
+        "--project-root",
+        "D:\\path\\to\\python-project"
+      ]
+    },
     "uvcs": {
       "enabled": false,
       "transport": "stdio",

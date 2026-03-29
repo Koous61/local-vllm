@@ -20,7 +20,7 @@ Use tools when they can provide a more reliable answer than guessing.
 Tool names are prefixed with the MCP server name, for example filesystem__read_file.
 When you decide to call a tool, do not describe the plan first. Emit only the tool call.
 When you use filesystem tools, prefer absolute Windows paths.
-If only one repository, workspace, compose project, or Node project is configured for a tool family, use it without asking for clarification.
+If only one repository, workspace, compose project, Node project, or Python project is configured for a tool family, use it without asking for clarification.
 After tool results arrive, answer clearly and concisely."""
 
 TOOL_BLOCK_PATTERNS = (
@@ -66,6 +66,10 @@ FORCED_WRITE_TOOL_NAMES = {
     "node__install_dependencies",
     "node__run_script",
     "node__build_project",
+    "python__run_script",
+    "python__run_module",
+    "python__run_pytest",
+    "python__run_unittest",
 }
 
 
@@ -618,6 +622,7 @@ def optimize_registry_for_prompt(
     git_names = {name for name in registry if name.startswith("git__")}
     docker_names = {name for name in registry if name.startswith("docker__")}
     node_names = {name for name in registry if name.startswith("node__")}
+    python_names = {name for name in registry if name.startswith("python__")}
 
     optimized = dict(registry)
 
@@ -759,6 +764,81 @@ def optimize_registry_for_prompt(
                     name: tool
                     for name, tool in optimized.items()
                     if not name.startswith("node__") or name in selected_node_names
+                }
+
+    if python_names:
+        explicit_python_mentions = {name for name in python_names if name.lower() in lowered}
+        if explicit_python_mentions:
+            optimized = {
+                name: tool
+                for name, tool in optimized.items()
+                if not name.startswith("python__") or name in explicit_python_mentions
+            }
+        else:
+            selected_python_names: set[str] | None = None
+            python_summary_keywords = (
+                "python project",
+                "python app",
+                "python files",
+                "requirements.txt",
+                "pyproject.toml",
+                "setup.py",
+                "entrypoint",
+                "fastapi",
+                "uvicorn",
+            )
+            python_test_keywords = (
+                "pytest",
+                "unittest",
+                "run tests",
+                "test file",
+                "failing test",
+                "python tests",
+            )
+            python_run_keywords = (
+                "run script",
+                "python script",
+                "python -m",
+                "run module",
+                "launch python",
+            )
+            python_syntax_keywords = (
+                "syntax check",
+                "syntax error",
+                "compile python",
+                "py_compile",
+            )
+
+            if any(keyword in lowered for keyword in python_test_keywords):
+                selected_python_names = {
+                    "python__project_summary",
+                    "python__list_test_targets",
+                    "python__run_pytest",
+                    "python__run_unittest",
+                }
+            elif any(keyword in lowered for keyword in python_run_keywords):
+                selected_python_names = {
+                    "python__project_summary",
+                    "python__run_script",
+                    "python__run_module",
+                }
+            elif any(keyword in lowered for keyword in python_syntax_keywords):
+                selected_python_names = {
+                    "python__project_summary",
+                    "python__syntax_check",
+                }
+            elif any(keyword in lowered for keyword in python_summary_keywords):
+                selected_python_names = {
+                    "python__project_summary",
+                    "python__list_test_targets",
+                    "python__syntax_check",
+                }
+
+            if selected_python_names:
+                optimized = {
+                    name: tool
+                    for name, tool in optimized.items()
+                    if not name.startswith("python__") or name in selected_python_names
                 }
 
     return optimized

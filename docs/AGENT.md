@@ -25,6 +25,7 @@ By default, the `coder` profile is used. If you do not pass `--server`, the agen
 - `repo`: Git-oriented repository analysis, with a compact Git status summary as the preferred first step
 - `ops`: Docker and local stack inspection for compose services, containers, and logs
 - `node`: Node.js project inspection and build workflows
+- `python`: Python project inspection, syntax checks, script or module execution, and test workflows
 - `unreal`: Unreal Engine and UVCS workspace analysis
 - `research`: browser-driven exploration with Playwright
 
@@ -35,6 +36,8 @@ Example:
 .\agent.cmd --profile ops --server docker --goal "Check whether the local Docker stack is healthy."
 .\agent.cmd --profile node --server node --goal "Inspect the configured Node project and list the available scripts."
 .\agent.cmd --profile node --server node --allow-writes --goal "Build the configured Node project."
+.\agent.cmd --profile python --server python --goal "Inspect the configured Python project and list the test targets."
+.\agent.cmd --profile python --server python --allow-writes --goal "Run the configured Python tests and summarize the result."
 ```
 
 ## Server selection
@@ -86,7 +89,7 @@ Default behavior:
 
 If you later add write-capable workflows, expose them behind an explicit `--allow-writes` run.
 
-The Node profile already follows that pattern: dependency install, script execution, and build tools stay blocked until `--allow-writes` is present.
+The Node and Python profiles already follow that pattern: dependency install, script execution, build tools, and Python test runs stay blocked until `--allow-writes` is present.
 
 ## Notes
 
