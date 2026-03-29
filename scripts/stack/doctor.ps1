@@ -131,7 +131,19 @@ $mcpDetails = "not configured"
 if ($mcpConfigOk) {
   try {
     $mcpConfig = Get-Content -Path $mcpConfigPath -Raw | ConvertFrom-Json
-    $serverNames = @($mcpConfig.mcpServers.PSObject.Properties.Name)
+    $serverNames = @()
+    foreach ($property in $mcpConfig.mcpServers.PSObject.Properties) {
+      $enabled = $true
+      if ($null -ne $property.Value.PSObject.Properties["enabled"]) {
+        if ($property.Value.enabled -is [string]) {
+          $enabled = $property.Value.enabled.Trim().ToLowerInvariant() -notin @("false", "0", "no", "off")
+        } else {
+          $enabled = [bool]$property.Value.enabled
+        }
+      }
+      $status = if ($enabled) { "enabled" } else { "disabled" }
+      $serverNames += ("{0}={1}" -f $property.Name, $status)
+    }
     $mcpDetails = if ($serverNames.Count -gt 0) { $serverNames -join ", " } else { "no servers" }
   } catch {
     $mcpConfigOk = $false

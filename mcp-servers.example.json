@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "filesystem": {
+      "enabled": true,
       "transport": "stdio",
       "command": "npx",
       "args": [
@@ -10,6 +11,7 @@
       ]
     },
     "playwright": {
+      "enabled": true,
       "transport": "stdio",
       "command": "npx",
       "args": [

@@ -211,6 +211,8 @@ Quick start:
 .\add-browser-mcp.cmd
 ```
 
+By default, `mcp-chat` loads the servers marked with `enabled: true` in `mcp-servers.json`. Passing `--server` explicitly overrides that default selection.
+
 Detailed MCP setup, usage, reliability notes, and examples are documented in `docs/MCP.md`.
 
 ## Rider integration

@@ -41,6 +41,7 @@ if ($Isolated) {
 }
 
 $config["mcpServers"][$Name] = [ordered]@{
+  enabled = $true
   transport = "stdio"
   command = "npx"
   args = $args

@@ -107,3 +107,23 @@ Optional flags:
 The local runtime config lives in `mcp-servers.json`. It is intentionally ignored by Git.
 
 The committed template lives in `mcp-servers.example.json`.
+
+Each server entry can include an `enabled` flag:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "enabled": true
+    },
+    "playwright": {
+      "enabled": false
+    }
+  }
+}
+```
+
+Behavior:
+
+- if you do not pass `--server`, the terminal host loads only servers with `enabled: true`
+- if you pass `--server` explicitly, that selection overrides the default enabled set

@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 - improved MCP reliability with placeholder substitution, tool-result memory, and repair retries
 - reorganized scripts into `scripts/lib`, `scripts/stack`, and `scripts/mcp`
 - simplified `README.md` by linking deeper MCP details to dedicated docs
+- added an `enabled` flag for MCP server entries so the default loaded server set can be controlled from config
 
 ## [1.0.0] - 2026-03-29
 

@@ -23,6 +23,7 @@ $config = Load-McpConfig -ConfigPath $ConfigPath
 
 $args = @("-y", "@modelcontextprotocol/server-filesystem") + $resolvedPaths
 $config["mcpServers"][$Name] = [ordered]@{
+  enabled = $true
   transport = "stdio"
   command = "npx"
   args = $args

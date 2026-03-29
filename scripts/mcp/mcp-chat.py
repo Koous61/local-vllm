@@ -162,6 +162,15 @@ def load_config(path: Path) -> dict[str, Any]:
     return data
 
 
+def is_server_enabled(server_config: dict[str, Any]) -> bool:
+    raw_value = server_config.get("enabled", True)
+    if isinstance(raw_value, bool):
+        return raw_value
+    if isinstance(raw_value, str):
+        return raw_value.strip().lower() not in {"false", "0", "no", "off"}
+    return bool(raw_value)
+
+
 def stringify_message_content(content: Any) -> str:
     if content is None:
         return ""
@@ -289,6 +298,27 @@ def cleanup_tool_json(raw_value: str) -> str:
     return value
 
 
+def parse_json_values(payload: str) -> list[Any]:
+    decoder = json.JSONDecoder()
+    items: list[Any] = []
+    index = 0
+    text = payload.strip()
+
+    while index < len(text):
+        while index < len(text) and text[index].isspace():
+            index += 1
+        if index >= len(text):
+            break
+        try:
+            item, next_index = decoder.raw_decode(text, index)
+        except json.JSONDecodeError:
+            return []
+        items.append(item)
+        index = next_index
+
+    return items
+
+
 def parse_tool_calls_from_content(content: str) -> list[dict[str, Any]]:
     calls: list[dict[str, Any]] = []
     candidates: list[str] = []
@@ -304,31 +334,31 @@ def parse_tool_calls_from_content(content: str) -> list[dict[str, Any]]:
 
     for payload_raw in candidates:
         payload = cleanup_tool_json(payload_raw)
-        try:
-            parsed = json.loads(payload)
-        except json.JSONDecodeError:
+        parsed_values = parse_json_values(payload)
+        if not parsed_values:
             continue
 
-        items = parsed if isinstance(parsed, list) else [parsed]
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name")
-            arguments = item.get("arguments", {})
-            if not isinstance(name, str):
-                continue
-            if not isinstance(arguments, dict):
-                arguments = {}
-            calls.append(
-                {
-                    "id": f"fallback-tool-call-{len(calls) + 1}",
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "arguments": json.dumps(arguments, ensure_ascii=False),
-                    },
-                }
-            )
+        for parsed in parsed_values:
+            items = parsed if isinstance(parsed, list) else [parsed]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("name")
+                arguments = item.get("arguments", {})
+                if not isinstance(name, str):
+                    continue
+                if not isinstance(arguments, dict):
+                    arguments = {}
+                calls.append(
+                    {
+                        "id": f"fallback-tool-call-{len(calls) + 1}",
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": json.dumps(arguments, ensure_ascii=False),
+                        },
+                    }
+                )
 
     return calls
 
@@ -582,7 +612,18 @@ async def connect_servers(
 ) -> dict[str, RegisteredTool]:
     registry: dict[str, RegisteredTool] = {}
     available_servers = config["mcpServers"]
-    server_names = selected_servers or list(available_servers.keys())
+    if selected_servers:
+        server_names = selected_servers
+    else:
+        server_names = [
+            name for name, server_config in available_servers.items()
+            if is_server_enabled(server_config)
+        ]
+        if not server_names:
+            raise ValueError(
+                "No enabled MCP servers were found in the config. "
+                "Enable at least one server or pass --server explicitly."
+            )
 
     for server_name in server_names:
         if server_name not in available_servers:
