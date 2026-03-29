@@ -72,7 +72,7 @@ To follow logs immediately during boot:
 The easiest way is:
 
 ```powershell
-.\use-model.cmd Qwen/Qwen2.5-7B-Instruct
+.\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
 ```
 
 That command updates `.env`, derives a `SERVED_MODEL_NAME`, and applies the change to the running stack.
@@ -80,8 +80,8 @@ That command updates `.env`, derives a `SERVED_MODEL_NAME`, and applies the chan
 You can still edit `.env` manually if you want:
 
 ```dotenv
-MODEL_ID=Qwen/Qwen2.5-7B-Instruct
-SERVED_MODEL_NAME=qwen2.5-7b-instruct
+MODEL_ID=Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
+SERVED_MODEL_NAME=qwen2.5-coder-14b-instruct-awq
 ```
 
 Then restart:
@@ -103,6 +103,7 @@ Put that model into `./models/my-local-model`.
 Examples:
 
 ```powershell
+.\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
 .\use-model.cmd meta-llama/Llama-3.2-3B-Instruct
 .\use-model.cmd deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 .\use-model.cmd /models/my-local-model
@@ -192,12 +193,13 @@ print(response.choices[0].message.content)
 
 Your RTX 5080 has 16 GB VRAM, so these are practical starting points:
 
+- `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ` as the default coding-focused choice
 - `Qwen/Qwen2.5-7B-Instruct`
 - `meta-llama/Llama-3.2-3B-Instruct`
 - `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`
 - `Qwen/Qwen2.5-14B-Instruct-AWQ` if you specifically want quantized weights
 
-For the first launch, the project defaults to a smaller model only to validate the stack quickly.
+The project now defaults to `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`, because it is a stronger coding model while still being a realistic fit for a 16 GB GPU thanks to AWQ quantization.
 
 On Windows + WSL2, some VRAM is typically occupied by the desktop, so the default `GPU_MEMORY_UTILIZATION` is intentionally conservative. If startup fails with a free-memory error, lower it further, for example to `0.78`. If you want to squeeze in larger models later, raise it gradually after you confirm stable boots.
 
