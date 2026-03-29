@@ -1,0 +1,32 @@
+services:
+  vllm:
+    image: ${VLLM_IMAGE}
+    container_name: ${CONTAINER_NAME}
+    restart: unless-stopped
+    entrypoint:
+      - /bin/bash
+      - /workspace/start-vllm.sh
+    gpus: all
+    ipc: host
+    ports:
+      - "${HOST_PORT}:8000"
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      HF_TOKEN: ${HF_TOKEN}
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN}
+      MODEL_ID: ${MODEL_ID}
+      SERVED_MODEL_NAME: ${SERVED_MODEL_NAME}
+      API_KEY: ${API_KEY}
+      DTYPE: ${DTYPE}
+      TENSOR_PARALLEL_SIZE: ${TENSOR_PARALLEL_SIZE}
+      GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION}
+      MAX_MODEL_LEN: ${MAX_MODEL_LEN}
+      MAX_NUM_SEQS: ${MAX_NUM_SEQS}
+      CPU_OFFLOAD_GB: ${CPU_OFFLOAD_GB}
+      TRUST_REMOTE_CODE: ${TRUST_REMOTE_CODE}
+      ENABLE_PREFIX_CACHING: ${ENABLE_PREFIX_CACHING}
+      EXTRA_ARGS: ${EXTRA_ARGS}
+    volumes:
+      - ./data/hf-cache:/root/.cache/huggingface
+      - ./models:/models
+      - ./scripts/container/start-vllm.sh:/workspace/start-vllm.sh:ro
