@@ -7,6 +7,7 @@ This project provides a local `vLLM` server behind an OpenAI-compatible API and 
 - GPU-backed `vLLM` running through Docker Desktop and WSL2
 - An OpenAI-compatible API for chat completions and related endpoints
 - `Open WebUI` preconfigured to use the local `vLLM` backend
+- An optional terminal MCP client that can use the same local model through `vLLM`
 - Persistent Hugging Face cache in `./data/hf-cache`
 - Persistent Open WebUI data in `./data/open-webui`
 - PowerShell and `.cmd` helpers for startup, shutdown, logs, smoke tests, and model switching
@@ -48,6 +49,8 @@ After startup:
 - `scripts/logs.ps1` tails container logs
 - `scripts/test-chat.ps1` sends a real request to the local OpenAI-compatible API
 - `scripts/use-model.ps1` switches the active model and can apply it immediately
+- `scripts/mcp-chat.py` runs a terminal MCP host against the local OpenAI-compatible API
+- `scripts/setup-mcp.ps1` creates a local `.venv`, installs MCP dependencies, and bootstraps `filesystem` MCP
 - `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd`, and `use-model.cmd` avoid PowerShell execution-policy friction on Windows
 
 ## Common commands
@@ -158,6 +161,81 @@ API key:
 ```text
 local-vllm-key
 ```
+
+## Terminal MCP client
+
+This repository also includes a small terminal MCP host that uses the same local `vLLM` endpoint. It connects to one or more MCP servers, exposes their tools to the current model, executes tool calls, and continues the conversation in the terminal.
+
+First-time setup:
+
+```powershell
+.\setup-mcp.cmd
+```
+
+That command:
+
+- creates `./.venv`
+- installs `mcp==1.26.0` and `openai==2.30.0`
+- creates or updates `./mcp-servers.json`
+- registers a local `filesystem` MCP server through `npx`
+
+Default terminal usage:
+
+```powershell
+.\mcp-chat.cmd --server filesystem
+```
+
+One-shot example:
+
+```powershell
+.\mcp-chat.cmd --server filesystem --once "List the files in D:\\Deals\\local-vllm and tell me where the main startup script lives."
+```
+
+The client supports both normal OpenAI-style `tool_calls` and the Qwen tool-call tags that `vLLM` may return in `tool_choice=auto` mode, so it works with the current default Qwen model without extra manual parsing.
+
+Interactive commands:
+
+- `/tools` shows the loaded MCP tools
+- `/clear` resets the current conversation
+- `/exit` closes the terminal chat
+
+The local config file `mcp-servers.json` is ignored by Git on purpose. The committed template lives in `mcp-servers.example.json`.
+If you want to see raw stderr from the MCP server process for debugging, add `--show-server-logs`.
+
+## Filesystem MCP
+
+The first bundled MCP profile is `filesystem`, backed by the official `@modelcontextprotocol/server-filesystem` package through `npx`.
+
+By default, `.\setup-mcp.cmd` grants it access to the current repository root. To update the allowed directories later:
+
+```powershell
+.\add-filesystem-mcp.cmd -AllowedPath D:\Deals\local-vllm
+.\add-filesystem-mcp.cmd -AllowedPath D:\Deals\local-vllm D:\Deals\another-project
+```
+
+The generated config looks like this:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "D:\\Deals\\local-vllm"
+      ]
+    }
+  }
+}
+```
+
+Notes:
+
+- `filesystem` only sees directories explicitly passed as allowed paths
+- `Node.js` is required because the server is started with `npx`
+- you can add more MCP servers to `mcp-servers.json` later and enable them with repeated `--server` flags
 
 ## Rider integration
 
