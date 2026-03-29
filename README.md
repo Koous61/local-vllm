@@ -247,3 +247,7 @@ On Windows + WSL2, some VRAM is usually occupied by the desktop. The default `GP
 - `vLLM` is best suited for open-weight models, not proprietary cloud-only models
 - Not every Hugging Face model is guaranteed, but `vLLM` can also run many models through the Transformers backend
 - If a larger model fails on memory, reduce `MAX_MODEL_LEN` or use a smaller or quantized checkpoint
+
+## License
+
+This repository is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).
