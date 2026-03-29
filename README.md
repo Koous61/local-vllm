@@ -178,7 +178,7 @@ After the connection is configured:
 2. In `Model Assignment`, set:
    - `Core features`: `qwen2.5-coder-14b-instruct-awq`
    - `Instant helpers`: `qwen2.5-coder-14b-instruct-awq`
-   - `Context window`: `4096`
+   - `Context window`: `8192`
 3. Click `Apply`.
 4. Open `AI Chat` in Rider and select `qwen2.5-coder-14b-instruct-awq` if it is not already selected.
 
@@ -240,7 +240,7 @@ Your RTX 5080 has 16 GB of VRAM, so these are practical starting points:
 
 The project defaults to `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ` because it is a stronger coding model than the smaller variants while still being a realistic fit for a 16 GB GPU thanks to AWQ quantization.
 
-On Windows + WSL2, some VRAM is usually occupied by the desktop. The default `GPU_MEMORY_UTILIZATION` is intentionally conservative. If startup fails with a free-memory error, lower it further, for example to `0.78`. If you want to push larger models later, increase it gradually after you confirm stable boots.
+On Windows + WSL2, some VRAM is usually occupied by the desktop. The default `GPU_MEMORY_UTILIZATION` is intentionally conservative. The current default `MAX_MODEL_LEN=8192` is chosen as a practical compromise for Rider and other IDE integrations. If startup fails with a free-memory error, lower `GPU_MEMORY_UTILIZATION`, reduce `MAX_MODEL_LEN`, or both. If you want to push larger models later, increase values gradually after you confirm stable boots.
 
 ## Notes
 
