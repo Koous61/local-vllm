@@ -1,12 +1,14 @@
-# Local vLLM on Windows + Docker
+# Local vLLM + Open WebUI on Windows + Docker
 
-This project gives you a local `vLLM` server behind an OpenAI-compatible API, so you can point external tools at `http://localhost:8000/v1` and swap models through `.env`.
+This project gives you a local `vLLM` server behind an OpenAI-compatible API plus `Open WebUI` for interactive testing in the browser. You can point external tools at `http://localhost:8000/v1`, while using the UI on `http://localhost:3001`.
 
 ## What you get
 
 - GPU-backed `vLLM` through Docker Desktop and WSL2
 - OpenAI-compatible endpoint for chat/completions and related APIs
+- `Open WebUI` already wired to the local `vLLM` backend
 - Persistent Hugging Face cache in `./data/hf-cache`
+- Persistent Open WebUI data in `./data/open-webui`
 - Simple PowerShell scripts for start, stop, logs, and a real test request
 - Model switching through `.env` without editing the compose file
 
@@ -32,11 +34,17 @@ Copy-Item .env.example .env
 ```
 
 The first start downloads both the `vLLM` image and the chosen model, so it can take a while.
+Open WebUI also downloads its own small embedding model on first boot, so the UI container may need an extra minute or two the very first time.
+
+After startup:
+
+- API: `http://localhost:8000/v1`
+- UI: `http://localhost:3001`
 
 ## Main files
 
 - `.env` controls the model and server settings
-- `docker-compose.yml` runs the GPU container
+- `docker-compose.yml` runs both `vLLM` and `Open WebUI`
 - `scripts/start.ps1` starts the service and waits for readiness
 - `scripts/logs.ps1` tails container logs
 - `scripts/test-chat.ps1` sends a real chat request to the local API
@@ -121,6 +129,25 @@ API key:
 ```text
 local-vllm-key
 ```
+
+## Browser UI
+
+Open WebUI is available at:
+
+```text
+http://localhost:3001
+```
+
+On first launch, create your admin account in the browser. The UI is preconfigured to use your local `vLLM` endpoint, and the served model should already appear in the selector.
+
+If you later change `MODEL_ID` or `SERVED_MODEL_NAME` in `.env`, restart the stack:
+
+```powershell
+.\stop.cmd
+.\start.cmd
+```
+
+Open WebUI stores some settings persistently after first boot. If you ever want a completely fresh UI setup, stop the stack and remove `./data/open-webui`.
 
 ### Python example
 

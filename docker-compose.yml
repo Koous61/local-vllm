@@ -30,3 +30,24 @@ services:
       - ./data/hf-cache:/root/.cache/huggingface
       - ./models:/models
       - ./scripts/container/start-vllm.sh:/workspace/start-vllm.sh:ro
+
+  open-webui:
+    image: ${OPEN_WEBUI_IMAGE}
+    container_name: open-webui
+    restart: unless-stopped
+    depends_on:
+      - vllm
+    ports:
+      - "${OPEN_WEBUI_PORT}:8080"
+    environment:
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URLS: http://vllm:8000/v1
+      OPENAI_API_KEYS: ${API_KEY}
+      DEFAULT_MODELS: ${SERVED_MODEL_NAME}
+      TASK_MODEL_EXTERNAL: ${SERVED_MODEL_NAME}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/open-webui:/app/backend/data

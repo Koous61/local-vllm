@@ -12,6 +12,7 @@ $composeArgs = Get-ComposeArgs
 foreach ($dir in @(
   (Join-Path $root "data"),
   (Join-Path $root "data\\hf-cache"),
+  (Join-Path $root "data\\open-webui"),
   (Join-Path $root "models")
 )) {
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
