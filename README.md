@@ -126,6 +126,13 @@ If a model requires remote code:
 TRUST_REMOTE_CODE=true
 ```
 
+Tool calling is enabled by default for the current Qwen model so that IDEs such as Rider can use OpenAI-compatible requests with `tool_choice="auto"`:
+
+```dotenv
+ENABLE_AUTO_TOOL_CHOICE=true
+TOOL_CALL_PARSER=hermes
+```
+
 If a model is slightly too large for VRAM, you can enable CPU offload:
 
 ```dotenv
@@ -180,6 +187,7 @@ Notes:
 - This setup works best in recent Rider versions with the current AI Assistant plugin.
 - For local and OpenAI-compatible endpoints, some AI Assistant capabilities depend on model compatibility and JetBrains AI subscription state.
 - According to JetBrains AI Assistant documentation, pure BYOK/local setups do not provide `Next edit suggestions`, and `Code completion` requires a compatible FIM completion model.
+- If Rider reports an error mentioning `tool_choice="auto"`, make sure your `.env` still contains `ENABLE_AUTO_TOOL_CHOICE=true` and `TOOL_CALL_PARSER=hermes`, then restart the stack.
 
 ## Browser UI
 
