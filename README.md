@@ -1,25 +1,25 @@
 # Local vLLM + Open WebUI on Windows + Docker
 
-This project gives you a local `vLLM` server behind an OpenAI-compatible API plus `Open WebUI` for interactive testing in the browser. You can point external tools at `http://localhost:8000/v1`, while using the UI on `http://localhost:3010`.
+This project provides a local `vLLM` server behind an OpenAI-compatible API and an `Open WebUI` instance for browser-based testing. External tools can connect to `http://localhost:8000/v1`, while the web UI is available at `http://localhost:3010`.
 
-## What you get
+## What this setup includes
 
-- GPU-backed `vLLM` through Docker Desktop and WSL2
-- OpenAI-compatible endpoint for chat/completions and related APIs
-- `Open WebUI` already wired to the local `vLLM` backend
+- GPU-backed `vLLM` running through Docker Desktop and WSL2
+- An OpenAI-compatible API for chat completions and related endpoints
+- `Open WebUI` preconfigured to use the local `vLLM` backend
 - Persistent Hugging Face cache in `./data/hf-cache`
 - Persistent Open WebUI data in `./data/open-webui`
-- Simple PowerShell scripts for start, stop, logs, and a real test request
-- Model switching through `.env` without editing the compose file
+- PowerShell and `.cmd` helpers for startup, shutdown, logs, smoke tests, and model switching
+- A default coding model tuned for a 16 GB GPU: `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`
 
 ## Requirements
 
-- Windows with Docker Desktop
+- Windows with Docker Desktop installed
 - WSL2 enabled
-- NVIDIA GPU available in Docker
+- NVIDIA GPU available inside Docker
 - Optional Hugging Face token for gated models
 
-This machine has already been validated for the hard part:
+This machine has already been validated for the core runtime requirements:
 
 - Docker is installed
 - WSL2 is running
@@ -33,49 +33,48 @@ Copy-Item .env.example .env
 .\test-chat.cmd
 ```
 
-The first start downloads both the `vLLM` image and the chosen model, so it can take a while.
-Open WebUI also downloads its own small embedding model on first boot, so the UI container may need an extra minute or two the very first time.
+The first startup downloads the `vLLM` image and the selected model, so it can take a while. `Open WebUI` also downloads its own small embedding model on first boot, so the UI container may need an extra minute or two the first time.
 
 After startup:
 
 - API: `http://localhost:8000/v1`
-- UI: `http://localhost:3010`
+- Open WebUI: `http://localhost:3010`
 
 ## Main files
 
-- `.env` controls the model and server settings
+- `.env` controls model and runtime settings
 - `docker-compose.yml` runs both `vLLM` and `Open WebUI`
-- `scripts/start.ps1` starts the service and waits for readiness
+- `scripts/start.ps1` starts the stack and waits for readiness
 - `scripts/logs.ps1` tails container logs
-- `scripts/test-chat.ps1` sends a real chat request to the local API
-- `scripts/use-model.ps1` switches the served model and can apply it immediately
-- `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd`, `use-model.cmd` avoid PowerShell execution-policy friction on Windows
+- `scripts/test-chat.ps1` sends a real request to the local OpenAI-compatible API
+- `scripts/use-model.ps1` switches the active model and can apply it immediately
+- `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd`, and `use-model.cmd` avoid PowerShell execution-policy friction on Windows
 
-## Useful commands
+## Common commands
 
 ```powershell
 .\start.cmd
 .\logs.cmd
 .\test-chat.cmd
 .\stop.cmd
-.\use-model.cmd Qwen/Qwen2.5-7B-Instruct
+.\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
 ```
 
-To follow logs immediately during boot:
+To follow logs during startup:
 
 ```powershell
 .\logs.cmd
 ```
 
-## Change the model
+## Switching models
 
-The easiest way is:
+The easiest way to switch the active model is:
 
 ```powershell
 .\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
 ```
 
-That command updates `.env`, derives a `SERVED_MODEL_NAME`, and applies the change to the running stack.
+This command updates `.env`, derives a `SERVED_MODEL_NAME`, and applies the change to the running stack.
 
 You can still edit `.env` manually if you want:
 
@@ -91,25 +90,26 @@ Then restart:
 .\start.cmd
 ```
 
-You can also point `MODEL_ID` to a local folder mounted under `/models`, for example:
+You can also point `MODEL_ID` to a local folder mounted under `/models`:
 
 ```dotenv
 MODEL_ID=/models/my-local-model
 SERVED_MODEL_NAME=my-local-model
 ```
 
-Put that model into `./models/my-local-model`.
+Place that model under `./models/my-local-model`.
 
 Examples:
 
 ```powershell
 .\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
+.\use-model.cmd Qwen/Qwen2.5-7B-Instruct
 .\use-model.cmd meta-llama/Llama-3.2-3B-Instruct
 .\use-model.cmd deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 .\use-model.cmd /models/my-local-model
 .\use-model.cmd Qwen/Qwen2.5-VL-7B-Instruct -TrustRemoteCode
 .\use-model.cmd meta-llama/Llama-3.2-3B-Instruct -HFToken hf_xxx
-.\use-model.cmd Qwen/Qwen2.5-7B-Instruct -NoRestart
+.\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ -NoRestart
 ```
 
 ## Gated and custom models
@@ -120,7 +120,7 @@ If a model is gated on Hugging Face, set:
 HF_TOKEN=hf_xxx
 ```
 
-If a model needs remote code:
+If a model requires remote code:
 
 ```dotenv
 TRUST_REMOTE_CODE=true
@@ -152,6 +152,35 @@ API key:
 local-vllm-key
 ```
 
+## Rider integration
+
+You can connect JetBrains Rider to the local `vLLM` instance through AI Assistant using the OpenAI-compatible provider.
+
+Recommended setup:
+
+1. Open `Settings | Tools | AI Assistant | Providers & API keys`.
+2. In `Third-party AI providers`, select `OpenAI-compatible`.
+3. Set `URL` to `http://localhost:8000/v1`.
+4. Set `API Key` to `local-vllm-key`.
+5. Set `Tool calling` to `Off` unless you explicitly need MCP tool support.
+6. Click `Test Connection`, then `Apply`.
+
+After the connection is configured:
+
+1. Stay in `Settings | Tools | AI Assistant | Providers & API keys`.
+2. In `Model Assignment`, set:
+   - `Core features`: `qwen2.5-coder-14b-instruct-awq`
+   - `Instant helpers`: `qwen2.5-coder-14b-instruct-awq`
+   - `Context window`: `4096`
+3. Click `Apply`.
+4. Open `AI Chat` in Rider and select `qwen2.5-coder-14b-instruct-awq` if it is not already selected.
+
+Notes:
+
+- This setup works best in recent Rider versions with the current AI Assistant plugin.
+- For local and OpenAI-compatible endpoints, some AI Assistant capabilities depend on model compatibility and JetBrains AI subscription state.
+- According to JetBrains AI Assistant documentation, pure BYOK/local setups do not provide `Next edit suggestions`, and `Code completion` requires a compatible FIM completion model.
+
 ## Browser UI
 
 Open WebUI is available at:
@@ -160,7 +189,7 @@ Open WebUI is available at:
 http://localhost:3010
 ```
 
-On first launch, create your admin account in the browser. The UI is preconfigured to use your local `vLLM` endpoint, and the served model should already appear in the selector.
+On first launch, create your admin account in the browser. The UI is already configured to use your local `vLLM` endpoint, and the served model should appear in the selector automatically.
 
 If you later change `MODEL_ID` or `SERVED_MODEL_NAME` in `.env`, restart the stack:
 
@@ -169,9 +198,9 @@ If you later change `MODEL_ID` or `SERVED_MODEL_NAME` in `.env`, restart the sta
 .\start.cmd
 ```
 
-Open WebUI stores some settings persistently after first boot. If you ever want a completely fresh UI setup, stop the stack and remove `./data/open-webui`.
+Open WebUI stores settings persistently after first boot. If you ever want a completely clean UI state, stop the stack and remove `./data/open-webui`.
 
-### Python example
+## Python example
 
 ```python
 from openai import OpenAI
@@ -182,8 +211,10 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen2.5-0.5b-instruct",
-    messages=[{"role": "user", "content": "Say hello from local vLLM."}],
+    model="qwen2.5-coder-14b-instruct-awq",
+    messages=[
+        {"role": "user", "content": "Write a short Python function that reverses a string."}
+    ],
 )
 
 print(response.choices[0].message.content)
@@ -191,20 +222,20 @@ print(response.choices[0].message.content)
 
 ## Recommended model sizes for this GPU
 
-Your RTX 5080 has 16 GB VRAM, so these are practical starting points:
+Your RTX 5080 has 16 GB of VRAM, so these are practical starting points:
 
 - `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ` as the default coding-focused choice
 - `Qwen/Qwen2.5-7B-Instruct`
 - `meta-llama/Llama-3.2-3B-Instruct`
 - `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`
-- `Qwen/Qwen2.5-14B-Instruct-AWQ` if you specifically want quantized weights
+- `Qwen/Qwen2.5-14B-Instruct-AWQ` if you want a general quantized instruction model
 
-The project now defaults to `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`, because it is a stronger coding model while still being a realistic fit for a 16 GB GPU thanks to AWQ quantization.
+The project defaults to `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ` because it is a stronger coding model than the smaller variants while still being a realistic fit for a 16 GB GPU thanks to AWQ quantization.
 
-On Windows + WSL2, some VRAM is typically occupied by the desktop, so the default `GPU_MEMORY_UTILIZATION` is intentionally conservative. If startup fails with a free-memory error, lower it further, for example to `0.78`. If you want to squeeze in larger models later, raise it gradually after you confirm stable boots.
+On Windows + WSL2, some VRAM is usually occupied by the desktop. The default `GPU_MEMORY_UTILIZATION` is intentionally conservative. If startup fails with a free-memory error, lower it further, for example to `0.78`. If you want to push larger models later, increase it gradually after you confirm stable boots.
 
 ## Notes
 
-- `vLLM` is best for open-weight models, not proprietary cloud-only models
+- `vLLM` is best suited for open-weight models, not proprietary cloud-only models
 - Not every Hugging Face model is guaranteed, but `vLLM` can also run many models through the Transformers backend
-- If a bigger model fails on memory, reduce `MAX_MODEL_LEN` or choose a smaller or quantized checkpoint
+- If a larger model fails on memory, reduce `MAX_MODEL_LEN` or use a smaller or quantized checkpoint
