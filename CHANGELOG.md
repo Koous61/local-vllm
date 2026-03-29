@@ -13,12 +13,15 @@ All notable changes to this project are documented in this file.
 - read-only UVCS MCP profile for UVCS / Plastic SCM repositories, including Unreal Engine projects
 - `doctor.cmd` / `scripts/stack/doctor.ps1` for environment and service diagnostics
 - `docs/MCP.md` and `docs/PROJECT-STRUCTURE.md`
+- terminal agent with profiles, resumable sessions, and read-only defaults
+- `docs/AGENT.md`
 - Unreal-oriented UVCS tools for area summaries, asset-only views, and workspace overviews
 - additional Unreal UVCS tools for plugin changes, Build.cs or Target.cs files, config files, and gameplay-code-only views
 
 ### Changed
 
 - improved MCP reliability with placeholder substitution, tool-result memory, and repair retries
+- extracted shared MCP Python runtime logic so `mcp-chat` and the terminal agent use the same transport and tool loop
 - reorganized scripts into `scripts/lib`, `scripts/stack`, and `scripts/mcp`
 - simplified `README.md` by linking deeper MCP details to dedicated docs
 - added an `enabled` flag for MCP server entries so the default loaded server set can be controlled from config

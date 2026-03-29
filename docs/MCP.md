@@ -37,6 +37,12 @@ Useful commands inside the interactive chat:
 
 If you need raw stderr from the MCP server process for debugging, add `--show-server-logs`.
 
+If you want a goal-driven workflow instead of a direct chat loop, use the terminal agent documented in `docs/AGENT.md`:
+
+```powershell
+.\agent.cmd --goal "Inspect this repo and tell me how to start the terminal agent."
+```
+
 ## Reliability behavior
 
 The terminal host is designed to be forgiving with local models:

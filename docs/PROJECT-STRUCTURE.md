@@ -15,18 +15,20 @@ This repository keeps user-facing commands at the root and groups implementation
 
 - `README.md`: high-level onboarding and day-to-day commands
 - `docs/MCP.md`: MCP setup, reliability behavior, and bundled profiles
+- `docs/AGENT.md`: terminal agent usage, profiles, session state, and safety model
 - `docs/PROJECT-STRUCTURE.md`: repository layout and ownership guidance
 
 ## Runtime data
 
 - `data/`: persistent runtime state, caches, browser outputs, and local UI data
+- `data/agent-sessions/`: persisted terminal-agent sessions and resumable state
 - `models/`: optional local model mounts exposed into the `vLLM` container
 
 ## Scripts
 
 - `scripts/lib/`: shared PowerShell helpers and config utilities
 - `scripts/stack/`: local stack lifecycle, readiness checks, smoke tests, and model switching
-- `scripts/mcp/`: MCP configuration helpers and the terminal MCP client
+- `scripts/mcp/`: MCP configuration helpers, the terminal MCP client, shared MCP runtime code, and the terminal agent
 - `scripts/container/`: files mounted directly into containers, such as the `vLLM` startup entrypoint
 
 ## Design intent

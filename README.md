@@ -8,6 +8,7 @@ This project provides a local `vLLM` server behind an OpenAI-compatible API and 
 - An OpenAI-compatible API for chat completions and related endpoints
 - `Open WebUI` preconfigured to use the local `vLLM` backend
 - An optional terminal MCP client that can use the same local model through `vLLM`
+- A terminal agent on top of the same local model and MCP profiles
 - Persistent Hugging Face cache in `./data/hf-cache`
 - Persistent Open WebUI data in `./data/open-webui`
 - PowerShell and `.cmd` helpers for startup, shutdown, logs, smoke tests, and model switching
@@ -47,6 +48,7 @@ After startup:
 - `docker-compose.yml` runs both `vLLM` and `Open WebUI`
 - `scripts/stack/` contains the Docker and runtime management scripts
 - `scripts/mcp/` contains the terminal MCP host and MCP setup helpers
+- `docs/AGENT.md` documents the terminal agent workflow
 - `scripts/lib/` contains shared PowerShell helpers used by the other script groups
 - `docs/PROJECT-STRUCTURE.md` describes the repository layout and intended ownership of each area
 - `start.cmd`, `stop.cmd`, `logs.cmd`, `test-chat.cmd`, and `use-model.cmd` avoid PowerShell execution-policy friction on Windows
@@ -79,6 +81,7 @@ More detail is in `docs/PROJECT-STRUCTURE.md`.
 .\doctor.cmd
 .\logs.cmd
 .\test-chat.cmd
+.\agent.cmd --goal "Inspect this repo and tell me how to start the terminal agent."
 .\stop.cmd
 .\use-model.cmd Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
 ```
@@ -217,6 +220,33 @@ Quick start:
 By default, `mcp-chat` loads the servers marked with `enabled: true` in `mcp-servers.json`. Passing `--server` explicitly overrides that default selection.
 
 Detailed MCP setup, usage, reliability notes, and examples are documented in `docs/MCP.md`.
+
+## Terminal agent
+
+The repository also includes a terminal agent that runs on top of the local `vLLM` endpoint and the MCP profiles.
+
+Quick start:
+
+```powershell
+.\agent.cmd --goal "Inspect this repo and tell me how to start the terminal agent."
+```
+
+Useful options:
+
+```powershell
+.\agent.cmd --profile repo --server git --goal "Summarize the current branch and dirty files."
+.\agent.cmd --profile unreal --server uvcs --goal "Summarize Unreal gameplay-code changes."
+.\agent.cmd --profile research --server playwright --server filesystem --goal "Open a page and save a local note."
+.\agent.cmd --resume 20260329-232248-coder-sample-task
+```
+
+Behavior:
+
+- defaults to read-only mode by filtering write-like tools
+- stores sessions under `./data/agent-sessions`
+- picks a minimal default server per profile unless you pass `--server`
+
+Detailed agent usage is documented in `docs/AGENT.md`.
 
 ## Rider integration
 

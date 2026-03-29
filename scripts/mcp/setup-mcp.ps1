@@ -27,6 +27,7 @@ if (-not $AllowedPath -or $AllowedPath.Count -eq 0) {
 Write-Host ""
 Write-Host "MCP terminal client is ready."
 Write-Host "Run .\mcp-chat.cmd --server filesystem"
+Write-Host "Run .\agent.cmd --goal `"Inspect this repo and summarize the terminal entrypoints.`""
 Write-Host "Optional browser profile: .\add-browser-mcp.cmd"
 Write-Host "Optional Git profile: .\add-git-mcp.cmd"
 Write-Host "Optional UVCS profile: .\add-uvcs-mcp.cmd"
