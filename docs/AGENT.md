@@ -5,7 +5,7 @@ This repository includes a terminal agent that runs on top of the local `vLLM` e
 ## What it does
 
 - accepts a goal from the terminal
-- selects a small MCP toolset based on the chosen profile
+- auto-selects a small MCP server subset for the goal unless you override it
 - iterates in short steps until it can finish or the step budget runs out
 - stores session state under `./data/agent-sessions`
 - defaults to read-only mode by filtering out write-like MCP tools
@@ -17,7 +17,7 @@ This repository includes a terminal agent that runs on top of the local `vLLM` e
 .\agent.cmd --goal "Inspect this repo and tell me how to start the terminal agent."
 ```
 
-By default, the `coder` profile is used. It currently prefers a minimal default toolset for stability, so it starts with `filesystem` unless you override the servers explicitly.
+By default, the `coder` profile is used. If you do not pass `--server`, the agent now performs a small routing step first and picks the smallest useful MCP server subset for the goal.
 
 ## Profiles
 
@@ -42,14 +42,23 @@ Example:
 Behavior:
 
 - if you pass `--server`, that exact set is used
-- otherwise the profile picks a minimal default server from the enabled config
+- otherwise the agent now runs a small routing step first and chooses the smallest useful subset of enabled MCP servers for the goal
+- the routing step prefers 1-2 servers and only expands to 3 when the task is clearly cross-domain
+- if routing fails, the agent falls back to a goal-based heuristic
 - if you need multiple MCP servers in one run, pass them explicitly
+
+Routing overrides:
+
+- `--server-routing auto`: default behavior, use agent-side routing
+- `--server-routing profile`: use the first enabled server from the selected profile
+- `--server-routing enabled`: load every enabled MCP server
 
 Examples:
 
 ```powershell
 .\agent.cmd --goal "Inspect this repo and tell me the main entrypoints."
 .\agent.cmd --profile repo --server git --goal "Summarize the current branch and dirty files."
+.\agent.cmd --server-routing profile --goal "Inspect this repo and tell me the main entrypoints."
 .\agent.cmd --profile research --server playwright --server filesystem --goal "Open example.com and save the title into a local note."
 ```
 

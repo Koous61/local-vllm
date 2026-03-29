@@ -278,6 +278,7 @@ Useful options:
 .\agent.cmd --profile repo --server git --goal "Summarize the current branch and dirty files."
 .\agent.cmd --profile unreal --server uvcs --goal "Summarize Unreal gameplay-code changes."
 .\agent.cmd --profile research --server playwright --server filesystem --goal "Open a page and save a local note."
+.\agent.cmd --server-routing profile --goal "Inspect this repo and tell me how to start the terminal agent."
 .\agent.cmd --resume 20260329-232248-coder-sample-task
 ```
 
@@ -285,7 +286,8 @@ Behavior:
 
 - defaults to read-only mode by filtering write-like tools
 - stores sessions under `./data/agent-sessions`
-- picks a minimal default server per profile unless you pass `--server`
+- if you do not pass `--server`, the agent now auto-selects a small MCP server subset for the goal before the main run starts
+- you can override that with `--server-routing profile` or `--server-routing enabled`
 - for Git repo questions, the stack now prefers a compact git status summary before heavier raw status payloads
 
 Detailed agent usage is documented in `docs/AGENT.md`.

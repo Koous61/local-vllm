@@ -57,6 +57,13 @@ class AgentDecision:
     raw_response: str
 
 
+@dataclass
+class ServerRoutingDecision:
+    servers: list[str]
+    strategy: str
+    reason: str
+
+
 AGENT_PROFILES: dict[str, AgentProfile] = {
     "coder": AgentProfile(
         name="coder",
@@ -116,6 +123,15 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
             "Keep source-backed conclusions explicit and avoid guessing page contents.",
         ),
     ),
+}
+
+SERVER_ROUTER_DESCRIPTIONS: dict[str, str] = {
+    "filesystem": "Local file and directory access inside allowed paths. Best for reading repo files, README, scripts, and writing local notes when writes are allowed.",
+    "playwright": "Browser automation and page inspection. Best for URLs, websites, page titles, and browser-driven fact gathering.",
+    "git": "Local Git repository inspection. Best for branch, status, diff, log, remotes, and file history questions.",
+    "docker": "Local Docker and compose inspection. Best for stack health, service states, container details, and logs.",
+    "node": "Node.js project inspection and build workflows. Best for package.json, scripts, package manager, dependency install, and project builds.",
+    "uvcs": "UVCS / Plastic SCM workspace inspection, including Unreal-specific summaries for project areas, assets, plugins, config, and gameplay code.",
 }
 
 
@@ -186,6 +202,12 @@ def parse_args() -> argparse.Namespace:
         "--show-server-logs",
         action="store_true",
         help="Show stderr output from stdio MCP servers.",
+    )
+    parser.add_argument(
+        "--server-routing",
+        choices=("auto", "profile", "enabled"),
+        default="auto",
+        help="How to choose MCP servers when --server is not provided. Default: %(default)s",
     )
     parser.add_argument(
         "--system-prompt",
@@ -310,28 +332,219 @@ def build_agent_system_prompt(
     return "\n".join(lines)
 
 
-def choose_servers(
+def build_server_router_prompt(
+    *,
+    goal: str,
+    profile: AgentProfile,
+    enabled_servers: list[str],
+    allow_writes: bool,
+) -> str:
+    lines = [
+        "You are selecting MCP servers for a local terminal agent before the main task starts.",
+        "Choose the smallest useful subset of enabled servers for the goal.",
+        "Prefer 1 or 2 servers. Use 3 only when the task is clearly cross-domain.",
+        "Do not select every enabled server unless the goal truly requires it.",
+        "If one profile-preferred server clearly matches, select only that server.",
+        "filesystem is helpful as a secondary server for repo or file inspection, but avoid adding it by default when a more specialized server is enough.",
+        "Return JSON only with this exact shape: {\"servers\":[\"name\"],\"reason\":\"short text\"}.",
+        f"Goal: {goal}",
+        f"Profile: {profile.name} - {profile.description}",
+        f"Write mode: {'enabled' if allow_writes else 'disabled'}",
+        "Profile-preferred servers: " + (", ".join(profile.preferred_servers) if profile.preferred_servers else "none"),
+        "Enabled servers:",
+    ]
+    for server_name in enabled_servers:
+        description = SERVER_ROUTER_DESCRIPTIONS.get(server_name, "No description available.")
+        lines.append(f"- {server_name}: {description}")
+    return "\n".join(lines)
+
+
+def parse_server_router_candidates(raw_response: str) -> list[str]:
+    stripped = raw_response.strip()
+    candidates: list[str] = []
+    if stripped:
+        candidates.append(stripped)
+    candidates.extend(JSON_BLOCK_PATTERN.findall(raw_response))
+    first_brace = raw_response.find("{")
+    last_brace = raw_response.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        candidates.append(raw_response[first_brace : last_brace + 1])
+    return [candidate.strip() for candidate in candidates if candidate.strip()]
+
+
+def parse_server_router_decision(
+    raw_response: str,
+    *,
+    enabled_servers: list[str],
+) -> ServerRoutingDecision:
+    enabled_set = set(enabled_servers)
+    for candidate in parse_server_router_candidates(raw_response):
+        parsed_values = parse_json_values(candidate)
+        if not parsed_values:
+            continue
+        for parsed in parsed_values:
+            if not isinstance(parsed, dict):
+                continue
+            raw_servers = parsed.get("servers")
+            if not isinstance(raw_servers, list):
+                continue
+            selected: list[str] = []
+            for item in raw_servers:
+                if not isinstance(item, str):
+                    continue
+                name = item.strip()
+                if not name or name not in enabled_set or name in selected:
+                    continue
+                selected.append(name)
+            if not selected:
+                continue
+            reason_raw = parsed.get("reason")
+            reason = truncate_text(str(reason_raw).strip(), 160) if reason_raw is not None else "Model-routed server selection."
+            return ServerRoutingDecision(
+                servers=selected[:3],
+                strategy="router",
+                reason=reason or "Model-routed server selection.",
+            )
+    raise ValueError("Could not parse a valid MCP server routing decision.")
+
+
+def heuristic_server_selection(
+    *,
+    goal: str,
+    profile: AgentProfile,
+    enabled_servers: list[str],
+) -> ServerRoutingDecision:
+    lowered = goal.lower()
+    enabled_set = set(enabled_servers)
+    selected: list[str] = []
+
+    def add(name: str) -> None:
+        if name in enabled_set and name not in selected:
+            selected.append(name)
+
+    if any(keyword in lowered for keyword in ("docker", "compose", "container", "service status", "stack status", "logs for")):
+        add("docker")
+    if any(keyword in lowered for keyword in ("package.json", "node", "npm", "pnpm", "yarn", "frontend", "backend", "react")):
+        add("node")
+    if any(keyword in lowered for keyword in ("unreal", "uvcs", "plastic", "uasset", "umap", "build.cs", "target.cs", "plugin")):
+        add("uvcs")
+    if any(keyword in lowered for keyword in ("branch", "diff", "commit", "history", "git", "working tree", "repo")):
+        add("git")
+    if any(keyword in lowered for keyword in ("browser", "website", "page", "url", "http://", "https://", "open ")) or "http" in lowered:
+        add("playwright")
+    if any(keyword in lowered for keyword in ("file", "folder", "directory", "readme", "script", "entrypoint", "path")):
+        add("filesystem")
+
+    if not selected:
+        for server_name in profile.preferred_servers:
+            add(server_name)
+            if selected:
+                break
+
+    if len(selected) == 1 and selected[0] in {"git", "uvcs", "node"} and "filesystem" in enabled_set:
+        if any(keyword in lowered for keyword in ("entrypoint", "readme", "file", "path", "note", "save", "startup")):
+            add("filesystem")
+
+    if not selected:
+        selected = enabled_servers[:1]
+
+    return ServerRoutingDecision(
+        servers=selected[:3],
+        strategy="heuristic",
+        reason="Goal-based heuristic server routing.",
+    )
+
+
+async def choose_servers(
     config: dict[str, Any],
     profile: AgentProfile,
     explicit_servers: list[str],
     resumed_session: dict[str, Any] | None,
-) -> tuple[list[str], str]:
+    goal: str,
+    allow_writes: bool,
+    client: AsyncOpenAI,
+    model: str,
+    routing_mode: str,
+) -> ServerRoutingDecision:
     if explicit_servers:
-        return explicit_servers, "explicit"
+        return ServerRoutingDecision(
+            servers=explicit_servers,
+            strategy="explicit",
+            reason="Operator provided --server explicitly.",
+        )
 
     if resumed_session is not None:
         resumed_servers = [
             str(name) for name in resumed_session.get("selected_servers", []) if str(name).strip()
         ]
         if resumed_servers:
-            return resumed_servers, "session"
+            return ServerRoutingDecision(
+                servers=resumed_servers,
+                strategy="session",
+                reason=str(resumed_session.get("server_reason") or "Resumed previous session server selection."),
+            )
 
     enabled_servers = get_enabled_server_names(config)
-    preferred_enabled = [name for name in profile.preferred_servers if name in enabled_servers]
-    if preferred_enabled:
-        return [preferred_enabled[0]], "profile"
+    if not enabled_servers:
+        return ServerRoutingDecision(
+            servers=[],
+            strategy="enabled",
+            reason="No enabled MCP servers were available.",
+        )
+    if len(enabled_servers) == 1:
+        return ServerRoutingDecision(
+            servers=enabled_servers,
+            strategy="single",
+            reason="Only one MCP server is enabled.",
+        )
 
-    return enabled_servers, "enabled"
+    preferred_enabled = [name for name in profile.preferred_servers if name in enabled_servers]
+    if routing_mode == "profile":
+        if preferred_enabled:
+            return ServerRoutingDecision(
+                servers=[preferred_enabled[0]],
+                strategy="profile",
+                reason=f"Profile default prefers '{preferred_enabled[0]}'.",
+            )
+        return ServerRoutingDecision(
+            servers=enabled_servers[:1],
+            strategy="profile-fallback",
+            reason="No profile-preferred enabled server was available, so the first enabled server was used.",
+        )
+
+    if routing_mode == "enabled":
+        return ServerRoutingDecision(
+            servers=enabled_servers,
+            strategy="enabled",
+            reason="Routing mode requested all enabled servers.",
+        )
+
+    router_prompt = build_server_router_prompt(
+        goal=goal,
+        profile=profile,
+        enabled_servers=enabled_servers,
+        allow_writes=allow_writes,
+    )
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": router_prompt}],
+            temperature=0,
+        )
+        raw_response = (response.choices[0].message.content or "").strip()
+        if raw_response:
+            return parse_server_router_decision(
+                raw_response,
+                enabled_servers=enabled_servers,
+            )
+    except Exception:
+        pass
+
+    return heuristic_server_selection(
+        goal=goal,
+        profile=profile,
+        enabled_servers=enabled_servers,
+    )
 
 
 def build_goal_hints(goal: str) -> list[str]:
@@ -584,6 +797,7 @@ def create_new_session(
     profile: AgentProfile,
     selected_servers: list[str],
     server_strategy: str,
+    server_reason: str,
     model_name: str,
     allow_writes: bool,
     blocked_tools: list[str],
@@ -601,6 +815,7 @@ def create_new_session(
         "profile": profile.name,
         "selected_servers": selected_servers,
         "server_strategy": server_strategy,
+        "server_reason": server_reason,
         "model": model_name,
         "allow_writes": allow_writes,
         "blocked_tools": blocked_tools,
@@ -688,6 +903,9 @@ def print_agent_banner(session: dict[str, Any]) -> None:
     print(f"Profile: {session['profile']}")
     print(f"Goal: {session['goal']}")
     print(f"Servers: {', '.join(session['selected_servers'])}")
+    print(f"Server routing: {session.get('server_strategy', 'unknown')}")
+    if session.get("server_reason"):
+        print(f"Routing note: {session['server_reason']}")
     print(f"Writes: {'enabled' if session['allow_writes'] else 'disabled'}")
     if not session["allow_writes"]:
         print(f"Blocked write-like tools: {format_blocked_tools(list(session.get('blocked_tools', [])))}")
@@ -814,13 +1032,24 @@ async def async_main() -> int:
     profile = AGENT_PROFILES[resumed_session["profile"]] if resumed_session is not None else AGENT_PROFILES[args.profile]
     api_key = get_api_key(args.api_key)
     client = AsyncOpenAI(base_url=args.base_url, api_key=api_key)
+    requested_model = args.model if args.model else (resumed_session or {}).get("model")
+    model = await resolve_model(client, requested_model)
+    effective_allow_writes = args.allow_writes if resumed_session is None else bool(resumed_session["allow_writes"])
 
-    selected_servers, server_strategy = choose_servers(
+    routing_decision = await choose_servers(
         config=config,
         profile=profile,
         explicit_servers=args.server,
         resumed_session=resumed_session,
+        goal=goal,
+        allow_writes=effective_allow_writes,
+        client=client,
+        model=model,
+        routing_mode=args.server_routing if resumed_session is None else "auto",
     )
+    selected_servers = routing_decision.servers
+    server_strategy = routing_decision.strategy
+    server_reason = routing_decision.reason
 
     async with AsyncExitStack() as exit_stack:
         registry = await connect_servers(
@@ -831,10 +1060,9 @@ async def async_main() -> int:
         )
         filtered_registry, blocked_tools = filter_registry_for_mode(
             registry,
-            allow_writes=args.allow_writes if resumed_session is None else bool(resumed_session["allow_writes"]),
+            allow_writes=effective_allow_writes,
         )
         runtime_notes = await collect_runtime_notes(filtered_registry)
-        model = await resolve_model(client, args.model if args.model else (resumed_session or {}).get("model"))
 
         if resumed_session is not None:
             session = resumed_session
@@ -846,12 +1074,13 @@ async def async_main() -> int:
             session["updated_at"] = utc_now()
             session["selected_servers"] = selected_servers
             session["server_strategy"] = server_strategy
+            session["server_reason"] = server_reason
             session["model"] = model
             session["blocked_tools"] = blocked_tools
         else:
             system_prompt = build_agent_system_prompt(
                 profile,
-                allow_writes=args.allow_writes,
+                allow_writes=effective_allow_writes,
                 available_tool_names=sorted(filtered_registry.keys()),
                 blocked_tools=blocked_tools,
                 runtime_notes=runtime_notes,
@@ -862,8 +1091,9 @@ async def async_main() -> int:
                 profile=profile,
                 selected_servers=selected_servers,
                 server_strategy=server_strategy,
+                server_reason=server_reason,
                 model_name=model,
-                allow_writes=args.allow_writes,
+                allow_writes=effective_allow_writes,
                 blocked_tools=blocked_tools,
                 max_steps=args.max_steps,
                 max_tool_rounds=args.max_tool_rounds,

@@ -29,6 +29,7 @@ All notable changes to this project are documented in this file.
 - tuned Git MCP and repo-agent guidance so simple branch and clean/dirty questions prefer a smaller summary tool over the heavier raw status payload
 - added Docker-aware agent/profile guidance and Docker tool narrowing for stack questions
 - added Node-aware MCP and agent guidance, plus explicit write-gating for local build and install workflows
+- added agent-side MCP server routing so the terminal agent can choose a small server subset automatically before the main run
 - reorganized scripts into `scripts/lib`, `scripts/stack`, and `scripts/mcp`
 - simplified `README.md` by linking deeper MCP details to dedicated docs
 - added an `enabled` flag for MCP server entries so the default loaded server set can be controlled from config
