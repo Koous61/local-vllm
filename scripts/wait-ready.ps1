@@ -15,7 +15,7 @@ $apiKey = if ($envValues.ContainsKey("API_KEY") -and $envValues["API_KEY"]) {
 $openWebUiPort = if ($envValues.ContainsKey("OPEN_WEBUI_PORT") -and $envValues["OPEN_WEBUI_PORT"]) {
   $envValues["OPEN_WEBUI_PORT"]
 } else {
-  "3001"
+  "3010"
 }
 
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)

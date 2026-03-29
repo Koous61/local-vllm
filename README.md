@@ -1,6 +1,6 @@
 # Local vLLM + Open WebUI on Windows + Docker
 
-This project gives you a local `vLLM` server behind an OpenAI-compatible API plus `Open WebUI` for interactive testing in the browser. You can point external tools at `http://localhost:8000/v1`, while using the UI on `http://localhost:3001`.
+This project gives you a local `vLLM` server behind an OpenAI-compatible API plus `Open WebUI` for interactive testing in the browser. You can point external tools at `http://localhost:8000/v1`, while using the UI on `http://localhost:3010`.
 
 ## What you get
 
@@ -39,7 +39,7 @@ Open WebUI also downloads its own small embedding model on first boot, so the UI
 After startup:
 
 - API: `http://localhost:8000/v1`
-- UI: `http://localhost:3001`
+- UI: `http://localhost:3010`
 
 ## Main files
 
@@ -135,7 +135,7 @@ local-vllm-key
 Open WebUI is available at:
 
 ```text
-http://localhost:3001
+http://localhost:3010
 ```
 
 On first launch, create your admin account in the browser. The UI is preconfigured to use your local `vLLM` endpoint, and the served model should already appear in the selector.
