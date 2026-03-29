@@ -102,6 +102,106 @@ Optional flags:
 .\add-browser-mcp.cmd -Isolated
 ```
 
+## Git MCP
+
+The bundled Git profile is a local read-only MCP server for Git repositories. It uses the installed `git` CLI and exposes repository inspection tools such as status, branches, remotes, log, file history, commit details, and diff.
+
+Register it with:
+
+```powershell
+.\add-git-mcp.cmd
+.\add-git-mcp.cmd -RepoPath D:\Deals\local-vllm
+```
+
+If you omit `-RepoPath`, the helper tries to detect the current repository from the project root.
+
+Current tools:
+
+- `git__list_repositories`
+- `git__repository_status`
+- `git__branches`
+- `git__remotes`
+- `git__log`
+- `git__file_history`
+- `git__show_commit`
+- `git__diff`
+
+Examples:
+
+```powershell
+.\mcp-chat.cmd --server git
+.\mcp-chat.cmd --server git --once "Use git__repository_status and summarize the current branch and changed files."
+.\mcp-chat.cmd --server git --once "Use git__log and show the last 3 commits."
+.\mcp-chat.cmd --server git --once "Use git__diff for README.md and summarize the current unstaged diff."
+```
+
+Notes:
+
+- the server is intentionally read-only in this project version
+- access is restricted to the configured repository roots
+- `git__diff` can inspect unstaged changes, staged changes, or diffs against a ref
+- `git__file_history` follows file renames through Git history
+
+## UVCS MCP
+
+The bundled UVCS profile is a local read-only MCP server for UVCS / Plastic SCM repositories, including Unreal Engine projects. It shells out to the installed `cm.exe` client and only exposes inspection tools, not write actions.
+
+Register it with:
+
+```powershell
+.\add-uvcs-mcp.cmd -WorkspacePath D:\Work\MyUnrealProject
+```
+
+If you omit `-WorkspacePath`, the helper tries to auto-detect local UVCS workspaces from `cm workspace list`.
+
+Current tools:
+
+- `uvcs__list_workspaces`
+- `uvcs__workspace_info`
+- `uvcs__status`
+- `uvcs__fileinfo`
+- `uvcs__history`
+- `uvcs__main_branch`
+- `uvcs__unreal_change_summary`
+- `uvcs__unreal_asset_status`
+- `uvcs__unreal_workspace_summary`
+- `uvcs__unreal_plugin_status`
+- `uvcs__unreal_build_script_status`
+- `uvcs__unreal_config_status`
+- `uvcs__unreal_gameplay_code_status`
+
+Examples:
+
+```powershell
+.\mcp-chat.cmd --server uvcs
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__workspace_info and tell me the current workspace root and current branch."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__status and summarize the changed and private files in the current workspace."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__unreal_change_summary and summarize changes by Source, Config, Content, Plugins, and other Unreal areas."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__unreal_asset_status and list only changed Unreal assets and maps."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__unreal_workspace_summary and tell me what changed in this Unreal workspace for a developer."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__unreal_plugin_status and summarize changed plugin files in the current workspace."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__unreal_build_script_status and list changed Build.cs or Target.cs files in the current workspace."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__unreal_config_status and list changed Unreal config files in the current workspace."
+.\mcp-chat.cmd --server uvcs --once "Use uvcs__unreal_gameplay_code_status and list changed gameplay-oriented Unreal C++ files in the current workspace."
+```
+
+Notes:
+
+- the server is intentionally read-only in this project version
+- the local `cm` command must be installed and signed into the target UVCS / Plastic SCM account
+- access is restricted to the configured workspace roots
+- if several workspaces are enabled, pass an explicit workspace path when a tool asks about a specific one
+
+Unreal-specific helpers:
+
+- `uvcs__unreal_change_summary` groups entries by top-level Unreal areas such as `Source`, `Config`, `Content`, `Plugins`, `Project`, and `Devops`
+- `uvcs__unreal_asset_status` filters the current status down to `.uasset` and `.umap` entries, with an optional `maps_only` flag
+- `uvcs__unreal_workspace_summary` provides a developer-oriented overview of changed project files, code, config, assets, plugin files, and build or DevOps changes
+- `uvcs__unreal_plugin_status` isolates changed files under `Plugins/` and groups them by plugin name
+- `uvcs__unreal_build_script_status` isolates changed `.Build.cs` and `.Target.cs` files
+- `uvcs__unreal_config_status` isolates changed `Config/*.ini` and plugin config files
+- `uvcs__unreal_gameplay_code_status` isolates gameplay-oriented C++ code and filters out common `Editor`, `Tests`, `Developer`, `Programs`, and `ThirdParty` code paths by heuristic module and path matching
+
 ## Config file
 
 The local runtime config lives in `mcp-servers.json`. It is intentionally ignored by Git.
@@ -118,6 +218,12 @@ Each server entry can include an `enabled` flag:
     },
     "playwright": {
       "enabled": false
+    },
+    "git": {
+      "enabled": true
+    },
+    "uvcs": {
+      "enabled": true
     }
   }
 }

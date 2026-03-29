@@ -9,8 +9,12 @@ All notable changes to this project are documented in this file.
 - terminal MCP host for the local `vLLM` endpoint
 - `filesystem` MCP profile
 - Playwright browser MCP profile
+- read-only Git MCP profile for local repositories
+- read-only UVCS MCP profile for UVCS / Plastic SCM repositories, including Unreal Engine projects
 - `doctor.cmd` / `scripts/stack/doctor.ps1` for environment and service diagnostics
 - `docs/MCP.md` and `docs/PROJECT-STRUCTURE.md`
+- Unreal-oriented UVCS tools for area summaries, asset-only views, and workspace overviews
+- additional Unreal UVCS tools for plugin changes, Build.cs or Target.cs files, config files, and gameplay-code-only views
 
 ### Changed
 
@@ -18,6 +22,8 @@ All notable changes to this project are documented in this file.
 - reorganized scripts into `scripts/lib`, `scripts/stack`, and `scripts/mcp`
 - simplified `README.md` by linking deeper MCP details to dedicated docs
 - added an `enabled` flag for MCP server entries so the default loaded server set can be controlled from config
+- diagnostics now report the local `git` command used by the Git profile
+- diagnostics now report the optional local `cm` command used by the UVCS profile
 
 ## [1.0.0] - 2026-03-29
 

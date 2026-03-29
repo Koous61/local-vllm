@@ -192,7 +192,8 @@ Quick environment and runtime check:
 
 That command verifies:
 
-- local commands such as `docker`, `python`, `node`, and `npx`
+- local commands such as `docker`, `git`, `python`, `node`, and `npx`
+- optional UVCS tooling through the local `cm` command
 - Docker engine reachability
 - compose service state
 - configured model and context length
@@ -201,7 +202,7 @@ That command verifies:
 
 ## MCP
 
-The repository includes a terminal MCP host plus bundled `filesystem` and Playwright browser profiles.
+The repository includes a terminal MCP host plus bundled `filesystem`, Playwright browser, Git, and UVCS profiles. The UVCS profile also includes Unreal-oriented tools for `Source`, `Config`, `Content`, plugins, `Build.cs` and `Target.cs`, asset files, gameplay-code filters, and developer-focused workspace overviews.
 
 Quick start:
 
@@ -209,6 +210,8 @@ Quick start:
 .\setup-mcp.cmd
 .\mcp-chat.cmd --server filesystem
 .\add-browser-mcp.cmd
+.\add-git-mcp.cmd
+.\add-uvcs-mcp.cmd -WorkspacePath D:\Work\MyUnrealProject
 ```
 
 By default, `mcp-chat` loads the servers marked with `enabled: true` in `mcp-servers.json`. Passing `--server` explicitly overrides that default selection.
