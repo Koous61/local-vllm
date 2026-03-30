@@ -37,6 +37,8 @@ Copy-Item .env.example .env
 
 The first startup downloads the `vLLM` image and the selected model, so it can take a while. `Open WebUI` also downloads its own small embedding model on first boot, so the UI container may need an extra minute or two the first time.
 
+`Open WebUI` now waits for a healthy `vLLM` backend before its own startup completes, which helps avoid the empty-model race after cold boots or model switches.
+
 After startup:
 
 - API: `http://localhost:8000/v1`

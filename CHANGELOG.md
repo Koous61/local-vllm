@@ -32,6 +32,7 @@ All notable changes to this project are documented in this file.
 - added Node-aware MCP and agent guidance, plus explicit write-gating for local build and install workflows
 - added Python-aware MCP and agent guidance, plus explicit write-gating for script, module, and test execution workflows
 - added agent-side MCP server routing so the terminal agent can choose a small server subset automatically before the main run
+- added a Docker healthcheck for `vLLM` and made `Open WebUI` wait for a healthy backend before startup
 - reorganized scripts into `scripts/lib`, `scripts/stack`, and `scripts/mcp`
 - simplified `README.md` by linking deeper MCP details to dedicated docs
 - added an `enabled` flag for MCP server entries so the default loaded server set can be controlled from config
